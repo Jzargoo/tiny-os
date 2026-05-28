@@ -1,0 +1,22 @@
+[package]
+name = "tiny-kernel"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+limine = {"version"="0.6.3", optional=true}
+spin = "0.12.0" # This dependency so cool
+
+[dependencies.lazy_static]
+version = "1.0"
+features = ["spin_no_std"] 
+
+[profile.dev]
+panic = "abort"
+
+[profile.release]
+panic = "abort"
+
+[features]
+default = ["boot-limine"]
+boot-limine=["dep:limine"]
