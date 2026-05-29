@@ -1,20 +1,17 @@
-use limine::{self, RequestsEndMarker, RequestsStartMarker, request::{EntryPointRequest, FramebufferRequest}};
-
+use limine::{self, RequestsEndMarker, RequestsStartMarker, request::{EntryPointRequest, FramebufferRequest, MemmapRequest, StackSizeRequest}};
+use crate::hal::page_allocator;
 
 use crate::{
-    hal::{GREEN, BLACK,
-    bios_info::BiosInfo,
-    framebuffer::Framebuffer},
+    hal::{    
+        bios_info::BiosInfo,
+        framebuffer::Framebuffer, page_allocator::PageAllocator,
+    },
     kernel_main,
-    logger::graphycal::{DISPLAY_WRITER, writer::Writer}, serial_info, serial_debug, serial_warn};
+    logger::LOGGER};
 
 #[used]
 #[unsafe(link_section = ".requests_start")]
 pub static REQUESTS_START: RequestsStartMarker = RequestsStartMarker::new();
-
-#[used]
-#[unsafe(link_section=".requests")]
-pub static ENTRY_REQUEST: EntryPointRequest = EntryPointRequest::new(_start);
 
 #[unsafe(no_mangle)]
 #[used]
@@ -22,41 +19,28 @@ pub static ENTRY_REQUEST: EntryPointRequest = EntryPointRequest::new(_start);
 pub static FRAMEBUFFER_REQUEST: FramebufferRequest = FramebufferRequest::new();
 
 #[used]
+#[unsafe(link_section = ".requests")]
+pub static STACK: StackSizeRequest = StackSizeRequest::new(65536);
+
+#[unsafe(link_section = ".requests")]
+pub static MEMMAP: MemmapRequest = MemmapRequest::new();
+
+#[used]
+#[unsafe(link_section=".requests")]
+pub static ENTRY_REQUEST: EntryPointRequest = EntryPointRequest::new(_start);
+
+#[used]
 #[unsafe(link_section = ".requests_end")]
 pub static REQUESTS_END: RequestsEndMarker = RequestsEndMarker::new();
-
 #[unsafe(no_mangle)]
 // #[unsafe(link_section = ".text._start")]
 pub  extern "C" fn _start() -> ! {
 
-    serial_info!("The kernel started execution!");
+    LOGGER.lock().write("The kernel is starting...");
 
-    if let Some(buff) = FRAMEBUFFER_REQUEST.response() {
-
-        let buffer = buff.framebuffers()[0];
+    if let Some(fb) = framebuffer_init() {
+        LOGGER.lock().write("The framebuffer was initilized");
         
-        let fb = Framebuffer::new(
-            buffer.address(),
-            buffer.width,
-            buffer.height,
-            buffer.pitch,
-            buffer.red_mask_size, buffer.green_mask_size, buffer.blue_mask_size,
-            buffer.red_mask_shift, buffer.green_mask_shift, buffer.blue_mask_shift,
-            buffer.bpp / 8
-        );
-
-        let writer = Writer::new(
-                &fb as *const Framebuffer,
-                0,
-                GREEN,
-                BLACK,
-                8
-            );
-        
-        DISPLAY_WRITER.init_from_ref(&writer);
-
-        serial_debug!("The framebuffer was initilized. Its structure is {:?}", fb);        
-  
         unsafe {
             let addr = fb.start_addr as *mut u32;
 
@@ -69,8 +53,8 @@ pub  extern "C" fn _start() -> ! {
         
         kernel_main(&mut bi);        
     
-    }else {
-        serial_warn!("The framebuffer was not initilized");
+    } else {
+        LOGGER.lock().write("The framebuffer was not initilized");
     } 
 
 
@@ -96,10 +80,18 @@ fn framebuffer_init() -> Option<Framebuffer> {
         Some(fb)
     
     } else {
-        serial_warn!("The framebuffer was not initilized");
-
         None
     } 
 
 
+}
+
+fn memmap_init() {
+    if let Some(memmap) = MEMMAP.response() {
+        LOGGER.lock().write("Memory map entry");
+        let entries = memmap.entries();
+        
+    } else {
+        LOGGER.lock().write("No memory map available");
+    }
 }

@@ -1,4 +1,5 @@
 pub mod framebuffer;
+pub mod page_allocator;
 pub mod bios_info;
 
 use framebuffer::Color;

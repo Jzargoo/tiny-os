@@ -1,0 +1,1 @@
+There is (only) a monolithic kernel written on the Rust.
