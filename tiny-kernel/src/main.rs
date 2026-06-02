@@ -16,7 +16,7 @@ pub extern crate alloc;
 
 
 #[global_allocator]
-pub static ALLOCATOR: allocator::HeapAllocatr = allocator::HeapAllocatr{}; 
+pub static ALLOCATOR: allocator::SlubAllocator = allocator::SlubAllocator{}; 
 
 #[panic_handler]
 pub fn panic(_qi: &PanicInfo) -> ! {

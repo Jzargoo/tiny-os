@@ -1,16 +1,17 @@
-use limine::{self, RequestsEndMarker, RequestsStartMarker, request::{EntryPointRequest, FramebufferRequest, MemmapRequest, StackSizeRequest}};
-use crate::hal::page_allocator;
+use limine::{self, BaseRevision, RequestsEndMarker, RequestsStartMarker, request::{EntryPointRequest, FramebufferRequest, HhdmRequest, MemmapRequest, StackSizeRequest}};
+use x86_64::VirtAddr;
+
 
 use crate::{
     hal::{    
         bios_info::BiosInfo,
-        framebuffer::Framebuffer, page_allocator::PageAllocator,
+        framebuffer::Framebuffer
     },
     kernel_main,
     logger::LOGGER};
 
 #[used]
-#[unsafe(link_section = ".requests_start")]
+#[unsafe(link_section = ".requests_start_marker")]
 pub static REQUESTS_START: RequestsStartMarker = RequestsStartMarker::new();
 
 #[unsafe(no_mangle)]
@@ -23,6 +24,9 @@ pub static FRAMEBUFFER_REQUEST: FramebufferRequest = FramebufferRequest::new();
 pub static STACK: StackSizeRequest = StackSizeRequest::new(65536);
 
 #[unsafe(link_section = ".requests")]
+pub static HHDM: HhdmRequest = HhdmRequest::new();
+
+#[unsafe(link_section = ".requests")]
 pub static MEMMAP: MemmapRequest = MemmapRequest::new();
 
 #[used]
@@ -30,7 +34,11 @@ pub static MEMMAP: MemmapRequest = MemmapRequest::new();
 pub static ENTRY_REQUEST: EntryPointRequest = EntryPointRequest::new(_start);
 
 #[used]
-#[unsafe(link_section = ".requests_end")]
+#[unsafe(link_section = ".requests")]
+static BASE_REVISION: BaseRevision = BaseRevision::new();
+
+#[used]
+#[unsafe(link_section = ".requests_end_marker")]
 pub static REQUESTS_END: RequestsEndMarker = RequestsEndMarker::new();
 #[unsafe(no_mangle)]
 // #[unsafe(link_section = ".text._start")]
@@ -48,16 +56,17 @@ pub  extern "C" fn _start() -> ! {
                 *addr.add(i as usize) = 0x00FF0000;
             }
         }
-
-        let mut bi = BiosInfo::new(fb);
+ 
+        let virt_addr = hhdm_init().expect("The kernel MUST return offset"); // The kernel MUST return offset
+ 
+        let mut bi = BiosInfo::new(fb, virt_addr.as_u64());
         
         kernel_main(&mut bi);        
     
     } else {
         LOGGER.lock().write("The framebuffer was not initilized");
     } 
-
-
+    
     loop {}
 }
 
@@ -93,5 +102,15 @@ fn memmap_init() {
         
     } else {
         LOGGER.lock().write("No memory map available");
+    }
+}
+
+fn hhdm_init() -> Option<VirtAddr>{
+    if let Some(resp) = HHDM.response() {
+        Some(
+            VirtAddr::new(resp.offset)
+        )
+    } else {
+        None
     }
 }

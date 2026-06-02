@@ -7,6 +7,9 @@ edition = "2024"
 limine = {"version"="0.6.3", optional=true}
 spin = "0.12.0" # This dependency so cool
 
+[target.'cfg(target_arch = "x86_64")'.dependencies]
+x86_64 = "0.15.4"
+
 [dependencies.lazy_static]
 version = "1.0"
 features = ["spin_no_std"] 
@@ -20,3 +23,4 @@ panic = "abort"
 [features]
 default = ["boot-limine"]
 boot-limine=["dep:limine"]
+
