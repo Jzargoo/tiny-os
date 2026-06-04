@@ -4,8 +4,8 @@ use x86_64::{
     VirtAddr, structures::paging::{FrameAllocator, FrameDeallocator, PageSize, PageTable}
 };
 
-const MAX_ORDER:u8 = 23; // MAX is 16GB 
-const MIN_ORDER:u8 = 14; // MIN is 4KB or one page
+const MAX_INDEX:u8 = 22; // MAX is 16GB 
+const MIN_ORDER:u8 = 12; // MIN is 4KB or one page
 
 struct BuddyNode{
     next: Option<*mut BuddyNode>
@@ -13,22 +13,8 @@ struct BuddyNode{
 
 pub struct BuddyAlloc{
     ptr_table: OffsetPageTable<'static>,
-    free_lists: [Option<*mut BuddyNode>; MAX_ORDER as usize],
+    free_lists: [Option<*mut BuddyNode>; MAX_INDEX as usize],
     current_max_order: u8
-}
-
-unsafe impl<T: PageSize> FrameAllocator<T> for BuddyAlloc {
-    
-    fn allocate_frame(&mut self) -> Option<x86_64::structures::paging::PhysFrame<T>> {
-        todo!()
-    }
-
-}
-
-impl <T: PageSize> FrameDeallocator<T> for BuddyAlloc {
-    unsafe fn deallocate_frame(&mut self, frame: x86_64::structures::paging::PhysFrame<T>) {
-        todo!()
-    }
 }
 
 fn active_page_table_lvl4(physical_offset: VirtAddr) 
@@ -51,6 +37,7 @@ fn active_page_table_lvl4(physical_offset: VirtAddr)
 
 #[allow(dead_code)]
 impl BuddyAlloc {
+    
     pub fn new(physical_offset: VirtAddr) -> Self{
         
         let pml4 = active_page_table_lvl4(physical_offset.clone());
@@ -61,7 +48,7 @@ impl BuddyAlloc {
 
         Self { 
             ptr_table: of_pt,
-            free_lists: [Option::None as Option<*mut BuddyNode>; MAX_ORDER as usize],
+            free_lists: [Option::None as Option<*mut BuddyNode>; MAX_INDEX as usize],
             current_max_order: 0
          }
     }
@@ -75,15 +62,21 @@ impl BuddyAlloc {
             
             let order = calculate_order(size); // if it is 0 - min(4 page) 
             
+            
             if order < 0 {
                 panic!("an error in adding a region for BuddyAlloc. Region cutted on pages cannot be less that one page");
             } 
+        
 
-            let index = if order as usize >= MAX_ORDER as usize {
-                (MAX_ORDER - 1) as usize
+            let index = if order as usize >= MAX_INDEX as usize {
+                MAX_INDEX as usize
             } else {
                 order as usize
             };
+
+            if self.current_max_order < index as u8 {
+                self.current_max_order = index as u8;
+            }
 
             unsafe {
                 let new_node_ptr = curr_addr as *mut BuddyNode;
@@ -122,4 +115,18 @@ fn calculate_order(mut size: usize) -> isize{
         }
 
         x - MIN_ORDER as isize
+}
+
+unsafe impl<T: PageSize> FrameAllocator<T> for BuddyAlloc {
+    
+    fn allocate_frame(&mut self) -> Option<x86_64::structures::paging::PhysFrame<T>> {
+        None
+    }
+
+}
+
+impl <T: PageSize> FrameDeallocator<T> for BuddyAlloc {
+    unsafe fn deallocate_frame(&mut self, frame: x86_64::structures::paging::PhysFrame<T>) {
+        
+    }
 }

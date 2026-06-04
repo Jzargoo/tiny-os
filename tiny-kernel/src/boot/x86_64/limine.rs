@@ -1,8 +1,5 @@
-use core::ops::Add;
-
 use limine::{
-    self, BaseRevision, RequestsEndMarker, RequestsStartMarker, 
-    request::{
+    self, BaseRevision, RequestsEndMarker, RequestsStartMarker, memmap::MEMMAP_USABLE, request::{
         EntryPointRequest, FramebufferRequest, HhdmRequest, MemmapRequest, StackSizeRequest
     }
 };
@@ -12,7 +9,7 @@ use x86_64::VirtAddr;
 use crate::{
     hal::{    
         bios_info::BiosInfo,
-        framebuffer::Framebuffer
+        framebuffer::Framebuffer, x86_64_page_allocator::BuddyAlloc
     },
     kernel_main,
     logger::LOGGER};
@@ -47,6 +44,7 @@ static BASE_REVISION: BaseRevision = BaseRevision::new();
 #[used]
 #[unsafe(link_section = ".requests_end_marker")]
 pub static REQUESTS_END: RequestsEndMarker = RequestsEndMarker::new();
+
 #[unsafe(no_mangle)]
 // #[unsafe(link_section = ".text._start")]
 pub  extern "C" fn _start() -> ! {
@@ -55,13 +53,9 @@ pub  extern "C" fn _start() -> ! {
 
     let virt_addr = hhdm_init().expect("The kernel MUST return offset");
 
-    let mem = virt_addr.add(0x8b000);
+    let mut alloc = BuddyAlloc::new(virt_addr);
 
-    let vga: *mut u8 = mem.as_mut_ptr();
-    unsafe {
-        vga.write(b'H');
-        vga.write(0x20);
-    }
+    memmap_init(&mut alloc, virt_addr.as_u64());
 
 
     if let Some(fb) = framebuffer_init() {
@@ -113,11 +107,17 @@ fn framebuffer_init() -> Option<Framebuffer> {
 
 }
 
-fn memmap_init() {
+fn memmap_init(alloc: &mut BuddyAlloc, offset: u64) {
     if let Some(memmap) = MEMMAP.response() {
         LOGGER.lock().write("Memory map entry");
         let entries = memmap.entries();
-        
+        for entry in entries {
+            if entry.type_ == MEMMAP_USABLE {
+                alloc.add_region(
+                    (offset + entry.base) as *mut u8,
+                     entry.length as usize);
+            }
+        }
     } else {
         LOGGER.lock().write("No memory map available");
     }
