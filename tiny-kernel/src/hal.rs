@@ -1,5 +1,8 @@
 pub mod framebuffer;
-pub mod page_allocator;
+
+#[cfg(target_arch = "x86_64")]
+pub mod x86_64_page_allocator;
+
 pub mod bios_info;
 
 use framebuffer::Color;

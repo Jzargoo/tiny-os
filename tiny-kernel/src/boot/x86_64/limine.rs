@@ -1,6 +1,13 @@
-use limine::{self, BaseRevision, RequestsEndMarker, RequestsStartMarker, request::{EntryPointRequest, FramebufferRequest, HhdmRequest, MemmapRequest, StackSizeRequest}};
-use x86_64::VirtAddr;
+use core::ops::Add;
 
+use limine::{
+    self, BaseRevision, RequestsEndMarker, RequestsStartMarker, 
+    request::{
+        EntryPointRequest, FramebufferRequest, HhdmRequest, MemmapRequest, StackSizeRequest
+    }
+};
+
+use x86_64::VirtAddr;
 
 use crate::{
     hal::{    
@@ -46,6 +53,17 @@ pub  extern "C" fn _start() -> ! {
 
     LOGGER.lock().write("The kernel is starting...");
 
+    let virt_addr = hhdm_init().expect("The kernel MUST return offset");
+
+    let mem = virt_addr.add(0x8b000);
+
+    let vga: *mut u8 = mem.as_mut_ptr();
+    unsafe {
+        vga.write(b'H');
+        vga.write(0x20);
+    }
+
+
     if let Some(fb) = framebuffer_init() {
         LOGGER.lock().write("The framebuffer was initilized");
         
@@ -66,7 +84,7 @@ pub  extern "C" fn _start() -> ! {
     } else {
         LOGGER.lock().write("The framebuffer was not initilized");
     } 
-    
+
     loop {}
 }
 

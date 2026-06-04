@@ -4,8 +4,7 @@ mod kernel_memory;
 
 #[repr(C, align(16))]
 pub struct SlubAllocator {
-    caches: [kernel_memory::k_mem_cache; 10], // 8 16 32 64 128 256 512 1024 2048 4096
-    
+    // caches: [kernel_memory::k_mem_cache; 10], // 8 16 32 64 128 256 512 1024 2048 4096
 }
 
 unsafe impl GlobalAlloc for SlubAllocator {
