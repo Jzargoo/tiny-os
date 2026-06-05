@@ -1,4 +1,5 @@
 use crate::hal::framebuffer::{Framebuffer, Color};
+use crate::logger::LOGGER;
 use crate::logger::graphycal::bitmap_font::FONT_8X8;
 
 #[derive(Debug, Clone, Copy)]
@@ -36,9 +37,14 @@ impl PartialEq for DisplayWriter {
 impl  DisplayWriter {
     
     pub fn write_string(&mut self, string: &str){
+
+        LOGGER.lock().write("DisplayWriter writing string...");
+        
         for byte  in string.bytes() {
             self.write_symbol(byte as char);
         }
+
+        LOGGER.lock().write("DisplayWriter finished writing string");
     }
 
     pub fn write_symbol(&mut self, c: char) {
@@ -109,7 +115,9 @@ impl  DisplayWriter {
 
 impl DisplayWriter {
     pub fn new(fb_ptr: *const Framebuffer, padding: usize, apf: Color, apb: Color, cell_size: u8) -> Self{
-
+        
+        LOGGER.lock().write("DisplayWriter creating...");
+        
         let width =  unsafe { (*fb_ptr).width  };
         let height = unsafe { (*fb_ptr).height };
 

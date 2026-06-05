@@ -23,13 +23,14 @@ macro_rules! panic_flush {
 pub fn _panic_flush(){
 
     let mut log = LOGGER.lock();
-
+    log.write("Eror occured. Write after panic flush macros");
     if log.is_sinks_inited() {
-        log.flush();
+        log.flush_all();
     } else {
-        let line = log.read();
+        let mut line = log.read();
         while line.is_some() {
             FALLBACK.write_string(line.unwrap());
+            line = log.read();
         }
     }
 }

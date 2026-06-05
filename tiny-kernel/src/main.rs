@@ -12,6 +12,8 @@ use hal::bios_info::BiosInfo;
 
 use core::main;
 
+use crate::{hal::{BLACK, GREEN, framebuffer::Framebuffer}, logger::graphycal::writer::DisplayWriter};
+
 pub extern crate alloc;
 
 
@@ -24,7 +26,20 @@ pub fn panic(_qi: &PanicInfo) -> ! {
     loop {}
 }
 
-pub fn kernel_main(_bi: &mut BiosInfo) {
-    main();
+pub fn kernel_main(bi: &mut BiosInfo) {
+    
+    let mut dw = DisplayWriter::new(
+        (&bi.framebuffer) as *const Framebuffer,
+        2,
+        GREEN,
+        BLACK, 
+        8);
+    
+    dw.write_string("Hello World");
+    
+    panic!();
+    
+    // main();
+
 }
 

@@ -1,6 +1,6 @@
 use core::fmt::Write;
 
-use alloc::{boxed::Box, string::{String, ToString}, vec::Vec};
+use alloc::{boxed::Box, string::ToString, vec::Vec};
 
 use crate::logger::ring_buffer::RingBuffer;
 
@@ -67,8 +67,10 @@ impl Logger {
 }
 
 impl Logger {
+    
     pub fn write(&mut self, data: &'static str){
         self.buffer.push(data);
+        self.buffer.push("\n\r");
     }
 
 
