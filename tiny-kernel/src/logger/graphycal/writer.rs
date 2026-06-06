@@ -3,8 +3,9 @@ use crate::logger::LOGGER;
 use crate::logger::graphycal::bitmap_font::FONT_8X8;
 
 #[derive(Debug, Clone, Copy)]
+#[allow(dead_code)]
 pub struct DisplayWriter {
-    fb_ptr: *const Framebuffer,
+    fb_ptr: *mut Framebuffer,
 
     padding: usize, 
 
@@ -33,28 +34,33 @@ impl PartialEq for DisplayWriter {
     }
 }
 
-
+#[allow(dead_code)]
 impl  DisplayWriter {
     
     pub fn write_string(&mut self, string: &str){
 
         LOGGER.lock().write("DisplayWriter writing string...");
         
-        for byte  in string.bytes() {
-            self.write_symbol(byte as char);
+        for char  in string.chars() {
+            self.write_symbol(char);
         }
 
         LOGGER.lock().write("DisplayWriter finished writing string");
     }
 
     pub fn write_symbol(&mut self, c: char) {
+        if !c.is_ascii() {
+            LOGGER.lock().write("[ERROR] expected ascii but it is not");
+            return;
+        }
         match c {
             '\n' => {
-                self.cur_col += 1;
-                self.cur_row = 0;
+                self.new_line();
+                return;
             },
             '\r' => {
-                self.cur_row = 0;
+                self.cur_col = self.padding;
+                return;
             },
             _ => {
 
@@ -74,17 +80,37 @@ impl  DisplayWriter {
                 match c {
                     ' ' => {
                         // For space, we can just fill the cell with background color without drawing the symbol
+                        self.calculate_offset_after_symbol();
                         return;
                     },      
                     _ => {
-                        self.write_foreground(self.active_foreground, c, x_start, y_start);
+                        self.write_foreground(self.active_foreground, c, x_start, y_start, fb);
                     }
                 }
+
+                self.calculate_offset_after_symbol();
             }
         }        
+
     } 
 
-    fn write_foreground(&self, color: Color, c: char, x_start: usize, y_start: usize) {
+    fn calculate_offset_after_symbol(&mut self) {
+        if self.cur_col == self.max_col {
+            self.new_line();
+        } else {
+            self.cur_col += 1;
+        }
+    }
+
+    fn new_line(&mut self) {
+        if self.cur_row >= self.max_row {
+            todo!("Implement erasing first line and writing there second. Move cur to max") 
+        }
+        self.cur_row += 1;
+        self.cur_col = self.padding;
+    }
+
+    fn write_foreground(&self, color: Color, c: char, x_start: usize, y_start: usize, fb: &Framebuffer) {
 
         let symbol = FONT_8X8[c as usize];
 
@@ -100,13 +126,11 @@ impl  DisplayWriter {
                 let x = symbol[byte] & (1 << bit);
                 
                 if x != 0 {
-                    unsafe {
-                        (*self.fb_ptr).write_pixel(
+                        fb.write_pixel(
                             color, 
-                            x_start * self.cell_size as usize + bit as usize,
-                            y_start * self.cell_size as usize + byte as usize
+                            x_start  + bit as usize,
+                            y_start  + byte as usize
                         );
-                    }
                 }
             }
         }       
@@ -114,7 +138,7 @@ impl  DisplayWriter {
 }
 
 impl DisplayWriter {
-    pub fn new(fb_ptr: *const Framebuffer, padding: usize, apf: Color, apb: Color, cell_size: u8) -> Self{
+    pub fn new(fb_ptr: *mut Framebuffer, padding: usize, apf: Color, apb: Color, cell_size: u8) -> Self{
         
         LOGGER.lock().write("DisplayWriter creating...");
         

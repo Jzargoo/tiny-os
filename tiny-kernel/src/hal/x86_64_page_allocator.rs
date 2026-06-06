@@ -14,6 +14,7 @@ struct BuddyNode{
 pub struct BuddyAlloc{
     ptr_table: OffsetPageTable<'static>,
     free_lists: [Option<*mut BuddyNode>; MAX_INDEX as usize],
+    bitmap: [Option<&'static mut [u8]>;MAX_INDEX as usize], 
     current_max_order: u8
 }
 
@@ -49,7 +50,8 @@ impl BuddyAlloc {
         Self { 
             ptr_table: of_pt,
             free_lists: [Option::None as Option<*mut BuddyNode>; MAX_INDEX as usize],
-            current_max_order: 0
+            current_max_order: 0,
+            bitmap: core::array::from_fn(|_| None)
          }
     }
 

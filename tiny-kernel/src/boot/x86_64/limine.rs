@@ -8,8 +8,7 @@ use x86_64::VirtAddr;
 
 use crate::{
     hal::{    
-        bios_info::BiosInfo,
-        framebuffer::Framebuffer, x86_64_page_allocator::BuddyAlloc
+        GREEN, RED, bios_info::BiosInfo, framebuffer::Framebuffer, x86_64_page_allocator::BuddyAlloc
     },
     kernel_main,
     logger::LOGGER};
@@ -83,7 +82,7 @@ pub  extern "C" fn _start() -> ! {
  
         let mut bi = BiosInfo::new(fb, virt_addr.as_u64());
         
-        kernel_main(&mut bi);        
+        kernel_main(&mut bi) ;        
     
     } else {
         LOGGER.lock().write("The framebuffer was not initilized");
@@ -100,7 +99,7 @@ fn framebuffer_init() -> Option<Framebuffer> {
         
 
         let buffer = buff.framebuffers()[0];
-        
+        // test_draw_square(buffer);
         let fb = Framebuffer::new(
             buffer.address(),
             buffer.width,
@@ -152,5 +151,30 @@ fn hhdm_init() -> Option<VirtAddr>{
     } else {
         LOGGER.lock().write("HHDM was NOT initialized!");
         None
+    }
+}
+
+pub fn test_draw_square(fb: &limine::framebuffer::Framebuffer) {
+
+    let bpp = fb.bpp as usize / 8;
+    let pitch = fb.pitch as usize;
+
+    let fb_ptr = fb.address() as *mut u8;
+
+    unsafe {
+        for y in 0..200 {
+            for x in 0..200 {
+                let offset = y * pitch + x * bpp;
+                let pixel = fb_ptr.add(offset);
+
+                pixel.add(0).write_volatile(0x00); // B
+                pixel.add(1).write_volatile(0x00); // G
+                pixel.add(2).write_volatile(0xFF); // R
+
+                if bpp == 4 {
+                    pixel.add(3).write_volatile(0x00); // A
+                }
+            }
+        }
     }
 }

@@ -10,11 +10,11 @@ pub struct Color{
 impl Color {
     pub const fn from_hex_rgb(hex_code: u32) -> Self {
         Self {
-            r: hex_code as u8,
-            g: (hex_code << 8) as u8,
-            b: ( hex_code << 16) as u8 
+            r: ((hex_code >> 16) & 0xFF) as u8,
+            g: ((hex_code >> 8) & 0xFF) as u8,
+            b: (hex_code & 0xFF) as u8,
         }
-    } 
+    }
 }
 
 pub enum PixelFormat {
@@ -48,8 +48,8 @@ impl Framebuffer {
             width,
             height,
             pitch,
-            red_mask_size, green_mask_size, blue_mask_size,
             red_mask_shift, green_mask_shift, blue_mask_shift,
+            red_mask_size, green_mask_size, blue_mask_size,
             bpp
         }
     } 
@@ -145,13 +145,15 @@ impl Framebuffer {
         }
     }
 
-    fn convert_color(&self, color: Color) -> usize{
-        // Optinal safety: parenthesis is not necessarily because priority of "<<" higher than "-", but it is more readable
-        let r = (color.r as usize) & ( (1 << self.red_mask_size ) - 1) << self.red_mask_shift;
-        let g = (color.g as usize) & ( (1 << self.green_mask_size) - 1) << self.green_mask_shift;
-        let b = (color.b as usize) & ( (1 << self.blue_mask_size) - 1) << self.blue_mask_shift;
+    fn convert_color(&self, color: Color) -> usize {
+        let r_downshift = 8usize.saturating_sub(self.red_mask_size as usize);
+        let g_downshift = 8usize.saturating_sub(self.green_mask_size as usize);
+        let b_downshift = 8usize.saturating_sub(self.blue_mask_size as usize);
 
-        // The order does not matter
+        let r = ((color.r as usize >> r_downshift) & ((1 << self.red_mask_size) - 1)) << self.red_mask_shift;
+        let g = ((color.g as usize >> g_downshift) & ((1 << self.green_mask_size) - 1)) << self.green_mask_shift;
+        let b = ((color.b as usize >> b_downshift) & ((1 << self.blue_mask_size) - 1)) << self.blue_mask_shift;
+
         r | g | b
     }
 
