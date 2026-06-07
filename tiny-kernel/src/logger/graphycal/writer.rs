@@ -95,7 +95,7 @@ impl  DisplayWriter {
     } 
 
     fn calculate_offset_after_symbol(&mut self) {
-        if self.cur_col == self.max_col {
+        if self.cur_col == self.max_col  {
             self.new_line();
         } else {
             self.cur_col += 1;

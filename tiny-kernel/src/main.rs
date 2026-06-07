@@ -30,14 +30,15 @@ pub fn kernel_main(bi: &mut BiosInfo) {
     
     let mut dw = DisplayWriter::new(
         (&mut bi.framebuffer) as *mut Framebuffer,
-        0,
+        10,
         Color::from_hex_rgb(0xFF3235),
         BLUE, 
         CELL_SIZE);
     
-    dw.write_string("Hello World");
+    dw.write_string("Hello World!\n");
+    dw.write_string("$#$%^&*()[]@!");
     
-    // main();
+    main();
 
 }
 

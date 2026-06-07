@@ -4,19 +4,27 @@ use x86_64::{
     VirtAddr, structures::paging::{FrameAllocator, FrameDeallocator, PageSize, PageTable}
 };
 
-const MAX_INDEX:u8 = 22; // MAX is 16GB 
 const MIN_ORDER:u8 = 12; // MIN is 4KB or one page
 
+#[allow(dead_code)]
 struct BuddyNode{
-    next: Option<*mut BuddyNode>
+    left: Option<*mut BuddyNode>, 
+    right: Option<*mut BuddyNode>
 }
 
+#[allow(dead_code)]
+struct BuddyRoot {
+    next: Option<*mut BuddyRoot>,
+    tree: BuddyNode,
+    rel_order: u8, // order of the size relative to min (4 kb)
+}
+
+#[allow(dead_code)]
 pub struct BuddyAlloc{
     ptr_table: OffsetPageTable<'static>,
-    free_lists: [Option<*mut BuddyNode>; MAX_INDEX as usize],
-    bitmap: [Option<&'static mut [u8]>;MAX_INDEX as usize], 
-    current_max_order: u8
+    buddy_root: Option<*mut BuddyRoot>
 }
+
 
 fn active_page_table_lvl4(physical_offset: VirtAddr) 
     -> &'static mut PageTable {
@@ -36,6 +44,7 @@ fn active_page_table_lvl4(physical_offset: VirtAddr)
     };
 }
 
+
 #[allow(dead_code)]
 impl BuddyAlloc {
     
@@ -49,13 +58,11 @@ impl BuddyAlloc {
 
         Self { 
             ptr_table: of_pt,
-            free_lists: [Option::None as Option<*mut BuddyNode>; MAX_INDEX as usize],
-            current_max_order: 0,
-            bitmap: core::array::from_fn(|_| None)
+            buddy_root: None
+            // bitmap: core::array::from_fn(|_| None)
          }
     }
 
-    // Start_addr is the first byte of the region
     pub fn add_region(&mut self,start_addr:  *mut u8, mut size: usize) {
         
         let mut curr_addr = start_addr;
@@ -68,45 +75,42 @@ impl BuddyAlloc {
             if order < 0 {
                 panic!("an error in adding a region for BuddyAlloc. Region cutted on pages cannot be less that one page");
             } 
-        
 
-            let index = if order as usize >= MAX_INDEX as usize {
-                MAX_INDEX as usize
-            } else {
-                order as usize
+            
+            let bn = BuddyNode{
+                left: None,
+                right: None
             };
-
-            if self.current_max_order < index as u8 {
-                self.current_max_order = index as u8;
+            
+            unsafe {
+                let curr_addr =  curr_addr as *mut BuddyRoot;
+                
+                curr_addr.write(
+                    BuddyRoot { 
+                        next: self.buddy_root, 
+                        tree: bn, 
+                        rel_order: order as u8 
+                    }
+                );
             }
 
-            unsafe {
-                let new_node_ptr = curr_addr as *mut BuddyNode;
+            self.buddy_root = Some(
+                    curr_addr as *mut BuddyRoot
+            );
 
-                let current_head = self.free_lists[index];
-                
-                new_node_ptr.write(
-                    BuddyNode { next: current_head }
-                );
-
-                self.free_lists[index] = Some(new_node_ptr);
-            
-            };
-            
-            size -= 1 << (MIN_ORDER as usize + index);
+            let block_size = 1usize << ((order as usize) + (MIN_ORDER as usize));
 
             unsafe {
-                curr_addr = curr_addr
-                    .add(
-                        1 <<  (MIN_ORDER as usize + index)
-                    );
-            };   
+                curr_addr = curr_addr.add(block_size);
+            }
+
+            size -= block_size;
 
         }
     }
 
-
 }
+
 
 fn calculate_order(mut size: usize) -> isize{
         let mut x = 0;
@@ -118,6 +122,7 @@ fn calculate_order(mut size: usize) -> isize{
 
         x - MIN_ORDER as isize
 }
+
 
 unsafe impl<T: PageSize> FrameAllocator<T> for BuddyAlloc {
     
