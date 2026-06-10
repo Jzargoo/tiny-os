@@ -12,7 +12,7 @@ use hal::bios_info::BiosInfo;
 
 use core::main;
 
-use crate::{hal::{BLUE, framebuffer::{Color, Framebuffer}}, logger::graphycal::{bitmap_font::CELL_SIZE, writer::DisplayWriter}};
+use crate::{hal::{BLACK, BLUE, GREEN, framebuffer::{Color, Framebuffer}}, logger::graphycal::{bitmap_font::CELL_SIZE, writer::DisplayWriter}};
 
 pub extern crate alloc;
 
@@ -30,13 +30,12 @@ pub fn kernel_main(bi: &mut BiosInfo) {
     
     let mut dw = DisplayWriter::new(
         (&mut bi.framebuffer) as *mut Framebuffer,
-        10,
-        Color::from_hex_rgb(0xFF3235),
-        BLUE, 
+        0,
+        GREEN,
+        BLACK, 
         CELL_SIZE);
     
-    dw.write_string("Hello World!\n");
-    dw.write_string("$#$%^&*()[]@!");
+    dw.write_string("This is the looooooooooooooooooooooooooooooooooooooooooongest looooooooooooooooooooooooooooooooooooooooooong word in the woooooooooooooooooooooooooooooooooooooooooooorld");
     
     main();
 

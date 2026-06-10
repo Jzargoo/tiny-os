@@ -30,3 +30,20 @@ pub static MAGENTA: Color = Color::from_hex_rgb(0xFF00FF);
 
 #[allow(dead_code)]
 pub static CYAN: Color = Color::from_hex_rgb(0x00FFFF);
+
+#[allow(dead_code)]
+pub static ORANGE: Color = Color::from_hex_rgb(0xFFA500);
+
+#[allow(dead_code)]
+pub static INDIGO: Color = Color::from_hex_rgb(0x4B0082);
+
+#[allow(dead_code)]
+pub static VIOLET: Color = Color::from_hex_rgb(0xEE82EE);
+
+#[allow(dead_code)]
+pub static PURPLE: Color = Color::from_hex_rgb(0x800080);
+
+#[allow(dead_code)]
+pub static PINK: Color = Color::from_hex_rgb(0xFFC0CB);
+
+pub const RAINBOW: [Color; 7] = [RED, ORANGE, YELLOW, GREEN, BLUE, INDIGO, VIOLET];

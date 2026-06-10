@@ -1,3 +1,6 @@
+use core::char::REPLACEMENT_CHARACTER;
+
+use crate::hal::{BLUE, GREEN, MAGENTA, RAINBOW, RED, YELLOW};
 use crate::hal::framebuffer::{Framebuffer, Color};
 use crate::logger::LOGGER;
 use crate::logger::graphycal::bitmap_font::FONT_8X8;
@@ -135,7 +138,34 @@ impl  DisplayWriter {
             }
         }       
     }
+
+
+    pub fn change_colors(&mut self, background: Color, foreground: Color){
+        self.active_background = background;
+        self.active_foreground = foreground;
+    }
+
+    
+    fn rainbow_colors(&mut self) {
+        
+        self.active_foreground = 
+            if let Some(pos) = RAINBOW.iter().position(|&c| c == self.active_foreground) {
+                RAINBOW[(pos + 1) % RAINBOW.len()] 
+            } else {
+                RED
+            };
+    }
+
+    // I do everything but useful things such as allocator
+    pub fn write_rainbow_string(&mut self, data: &str) {
+        for char in data.chars() {
+            self.rainbow_colors();
+            self.write_symbol(char);
+        }
+    }
+
 }
+
 
 impl DisplayWriter {
     pub fn new(fb_ptr: *mut Framebuffer, padding: usize, apf: Color, apb: Color, cell_size: u8) -> Self{

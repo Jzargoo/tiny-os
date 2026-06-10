@@ -1,3 +1,5 @@
+use core::any::Any;
+
 use x86_64::structures::paging::OffsetPageTable;
 
 use x86_64::{
@@ -16,6 +18,7 @@ struct BuddyNode{
 struct BuddyRoot {
     next: Option<*mut BuddyRoot>,
     tree: BuddyNode,
+    bitmap: *mut [bool],
     rel_order: u8, // order of the size relative to min (4 kb)
 }
 
@@ -69,26 +72,35 @@ impl BuddyAlloc {
 
         while size != 0 {
             
-            let order = calculate_order(size); // if it is 0 - min(4 page) 
+            let order = calculate_order(size);
             
             
-            if order < 0 {
-                panic!("an error in adding a region for BuddyAlloc. Region cutted on pages cannot be less that one page");
-            } 
-
+            if order < MIN_ORDER {
+                panic!("The root order is less than 1 page")
+            }
             
             let bn = BuddyNode{
                 left: None,
                 right: None
             };
+
             
+            let bitmap_len = 1 << (order - 1);
+
             unsafe {
-                let curr_addr =  curr_addr as *mut BuddyRoot;
                 
-                curr_addr.write(
+
+                let root_ptr = curr_addr as *mut BuddyRoot;
+
+                let bitmap_addr = root_ptr.add(1) as *mut bool;
+                
+                let bitmap_slice: *mut [bool] = core::ptr::slice_from_raw_parts_mut(bitmap_addr as *mut bool, bitmap_len);
+                
+                root_ptr.write(
                     BuddyRoot { 
                         next: self.buddy_root, 
                         tree: bn, 
+                        bitmap: bitmap_slice,
                         rel_order: order as u8 
                     }
                 );
@@ -109,10 +121,32 @@ impl BuddyAlloc {
         }
     }
 
+    fn split() {
+
+    } 
+
 }
 
+fn find_free_index(root: BuddyRoot, order: u8) -> Option<*mut u8> {
+    
+    let root_order = root.rel_order;
+    
+    let index = root_order - order;
 
-fn calculate_order(mut size: usize) -> isize{
+    let bitmap = unsafe { root.bitmap.as_ref().expect("The bitmap array does not exist") };
+
+    let start_index = (1 << index) - 1;
+    let end_index = (1 << (index + 1)) - 1;
+
+    for idx in start_index..end_index {
+        if 
+    }
+
+
+    None
+}
+
+fn calculate_order(mut size: usize) -> u8{
         let mut x = 0;
         
         while  size  > 1 {
@@ -120,14 +154,38 @@ fn calculate_order(mut size: usize) -> isize{
             size /= 2;
         }
 
-        x - MIN_ORDER as isize
+        x
 }
 
 
 unsafe impl<T: PageSize> FrameAllocator<T> for BuddyAlloc {
     
     fn allocate_frame(&mut self) -> Option<x86_64::structures::paging::PhysFrame<T>> {
-        None
+        
+        let frame_size_bytes = T::SIZE;
+
+        let order = calculate_order(frame_size_bytes as usize);
+
+        if let Some (root) = self.buddy_root{ 
+            let mut current = self.buddy_root;
+
+            while let Some(mut node_ptr) = current {
+                unsafe {
+
+                    let node = node_ptr.as_ref().expect("Expected a correct reference");
+
+                    if node.rel_order >= order {    
+                        return Some(split()); 
+                    }
+
+                    current = node.next;
+                }
+            }
+
+            None // cannot find 
+        } else {
+            None // Region is not contained in alloc
+        }
     }
 
 }

@@ -1,6 +1,6 @@
 use core::ptr::{copy_nonoverlapping, slice_from_raw_parts_mut};
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Color{
     pub r: u8,
     pub g: u8,
