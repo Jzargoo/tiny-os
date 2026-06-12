@@ -1,25 +1,20 @@
-use core::any::Any;
-
 use x86_64::structures::paging::OffsetPageTable;
 
 use x86_64::{
     VirtAddr, structures::paging::{FrameAllocator, FrameDeallocator, PageSize, PageTable}
 };
 
-const MIN_ORDER:u8 = 12; // MIN is 4KB or one page
+use crate::logger::LOGGER;
 
-#[allow(dead_code)]
-struct BuddyNode{
-    left: Option<*mut BuddyNode>, 
-    right: Option<*mut BuddyNode>
-}
+const MIN_ORDER:u8 = 12; // MIN is 4KB or one page
+const MAX_ORDER:u8 = 20;
+
 
 #[allow(dead_code)]
 struct BuddyRoot {
     next: Option<*mut BuddyRoot>,
-    tree: BuddyNode,
-    bitmap: *mut [bool],
-    rel_order: u8, // order of the size relative to min (4 kb)
+    start: usize,
+    order: u8, 
 }
 
 #[allow(dead_code)]
@@ -62,7 +57,6 @@ impl BuddyAlloc {
         Self { 
             ptr_table: of_pt,
             buddy_root: None
-            // bitmap: core::array::from_fn(|_| None)
          }
     }
 
@@ -72,35 +66,38 @@ impl BuddyAlloc {
 
         while size != 0 {
             
-            let order = calculate_order(size);
+            let mut order = calculate_order(size);
             
             
             if order < MIN_ORDER {
-                panic!("The root order is less than 1 page")
+
+                let block_size = 1usize << (order as usize);
+
+                curr_addr = unsafe { curr_addr.add(block_size) };
+                
+                size -= block_size;
+
+                continue;
+            
+            } else if order > MAX_ORDER{
+                order = MAX_ORDER;
             }
             
             let bn = BuddyNode{
                 left: None,
-                right: None
+                right: None,
+                state: State::FREE
             };
-
-            
-            let bitmap_len = 1 << (order - 1);
 
             unsafe {
                 
 
                 let root_ptr = curr_addr as *mut BuddyRoot;
-
-                let bitmap_addr = root_ptr.add(1) as *mut bool;
-                
-                let bitmap_slice: *mut [bool] = core::ptr::slice_from_raw_parts_mut(bitmap_addr as *mut bool, bitmap_len);
                 
                 root_ptr.write(
                     BuddyRoot { 
                         next: self.buddy_root, 
                         tree: bn, 
-                        bitmap: bitmap_slice,
                         rel_order: order as u8 
                     }
                 );
@@ -110,7 +107,7 @@ impl BuddyAlloc {
                     curr_addr as *mut BuddyRoot
             );
 
-            let block_size = 1usize << ((order as usize) + (MIN_ORDER as usize));
+            let block_size = 1usize << (order as usize);
 
             unsafe {
                 curr_addr = curr_addr.add(block_size);
@@ -121,11 +118,25 @@ impl BuddyAlloc {
         }
     }
 
-    fn split() {
-
-    } 
-
 }
+
+fn split(buddy_node: &mut BuddyNode, order: u8) { // order is the order of the buddy node
+
+    if order < MIN_ORDER {
+        LOGGER.lock().write("[ERROR] Was asked less than one page( the minimal size of the block )");
+        panic!()
+    }
+
+    buddy_node.state = State::SPLITTED;
+    let ptr = buddy_node as *mut BuddyNode;
+    buddy_node.left = Some (
+        ptr
+    );
+
+    buddy_node.right = Some (
+        unsafe { ptr.byte_add(1 << (order - 1)) }
+    );
+} 
 
 fn find_free_index(root: BuddyRoot, order: u8) -> Option<*mut u8> {
     
@@ -139,8 +150,15 @@ fn find_free_index(root: BuddyRoot, order: u8) -> Option<*mut u8> {
     let end_index = (1 << (index + 1)) - 1;
 
     for idx in start_index..end_index {
-        if 
-    }
+        if bitmap[idx] {
+            let mut node = root
+            let mut k = idx;
+            while k != 0 {
+
+                k /= 2;
+            }
+        } 
+   }
 
 
     None
@@ -175,7 +193,7 @@ unsafe impl<T: PageSize> FrameAllocator<T> for BuddyAlloc {
                     let node = node_ptr.as_ref().expect("Expected a correct reference");
 
                     if node.rel_order >= order {    
-                        return Some(split()); 
+                        // return Some(split()); 
                     }
 
                     current = node.next;

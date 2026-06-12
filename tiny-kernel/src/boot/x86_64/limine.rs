@@ -8,7 +8,7 @@ use x86_64::VirtAddr;
 
 use crate::{
     hal::{    
-        bios_info::BiosInfo, framebuffer::Framebuffer, x86_64_page_allocator::BuddyAlloc
+        KERNEL_HEAP_SIZE, bios_info::BiosInfo, framebuffer::Framebuffer, kernel_allocator::BumpAllocator, x86_64_page_allocator::BuddyAlloc
     },
     kernel_main,
     logger::LOGGER};
@@ -72,20 +72,20 @@ pub  extern "C" fn _start() -> ! {
     
     let mut alloc = BuddyAlloc::new(virt_addr);
 
-    memmap_init(&mut alloc, virt_addr.as_u64());
+    let kernel_alloc = memmap_init(&mut alloc, virt_addr.as_u64());
 
 
-    if let Some(fb) = framebuffer_init() {
+    if let Some(fb) = framebuffer_init() &&  let Some(ka) = kernel_alloc  {
         LOGGER.lock().write("The framebuffer was initilized");
  
         let virt_addr = hhdm_init().expect("The kernel MUST return offset"); // The kernel MUST return offset
  
-        let mut bi = BiosInfo::new(fb, virt_addr.as_u64());
+        let mut bi = BiosInfo::new(fb, virt_addr.as_u64(), ka);
         
-        kernel_main(&mut bi) ;        
+        kernel_main(&mut bi);        
     
     } else {
-        LOGGER.lock().write("The framebuffer was not initilized");
+        LOGGER.lock().write("The framebuffer or kernel allocator/heap was not initilized");
     } 
 
     loop {}
@@ -122,21 +122,32 @@ fn framebuffer_init() -> Option<Framebuffer> {
 
 
 
-fn memmap_init(alloc: &mut BuddyAlloc, offset: u64) {
+fn memmap_init(alloc: &mut BuddyAlloc, offset: u64) -> Option<BumpAllocator> {
     if let Some(memmap) = MEMMAP.response() {
         LOGGER.lock().write("Memory map entry!");
+        
+        let mut kernel_alloc = None;
         let entries = memmap.entries();
-        for entry in entries {
-            if entry.type_ == MEMMAP_USABLE {
-                alloc.add_region(
-                    (offset + entry.base) as *mut u8,
-                     entry.length as usize);
 
+        for entry in entries {
+            if entry.type_ == MEMMAP_USABLE  {
                 
+                let mut base = entry.base;
+                let mut len = entry.length;
+
+                if kernel_alloc.is_none() || len >= KERNEL_HEAP_SIZE as u64 {
+                    kernel_alloc = Some(BumpAllocator::new(base as usize, KERNEL_HEAP_SIZE) );
+                    base += KERNEL_HEAP_SIZE as u64;
+                    len -= KERNEL_HEAP_SIZE as u64;
+                }
+
+                alloc.add_region((base + offset) as *mut u8, len as  usize);
             }
         }
+        kernel_alloc
     } else {
         LOGGER.lock().write("No memory map available!");
+        None
     }
 }
 

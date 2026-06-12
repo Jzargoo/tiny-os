@@ -1,6 +1,6 @@
-use core::char::REPLACEMENT_CHARACTER;
 
-use crate::hal::{BLUE, GREEN, MAGENTA, RAINBOW, RED, YELLOW};
+
+use crate::hal::{RAINBOW, RED};
 use crate::hal::framebuffer::{Framebuffer, Color};
 use crate::logger::LOGGER;
 use crate::logger::graphycal::bitmap_font::FONT_8X8;

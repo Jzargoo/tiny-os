@@ -3,7 +3,11 @@ pub mod framebuffer;
 #[cfg(target_arch = "x86_64")]
 pub mod x86_64_page_allocator;
 
+pub mod kernel_allocator;
+
 pub mod bios_info;
+
+pub const KERNEL_HEAP_SIZE: usize = 0x4000; 
 
 use framebuffer::Color;
 
