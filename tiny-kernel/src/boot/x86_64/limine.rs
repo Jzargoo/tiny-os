@@ -1,5 +1,5 @@
 use limine::{
-    self, BaseRevision, RequestsEndMarker, RequestsStartMarker, memmap::MEMMAP_USABLE, request::{
+    self, BaseRevision, RequestsEndMarker, RequestsStartMarker, memmap::{Entry, MEMMAP_USABLE}, request::{
         EntryPointRequest, FramebufferRequest, HhdmRequest, MemmapRequest, StackSizeRequest
     }
 };
@@ -123,28 +123,35 @@ fn framebuffer_init() -> Option<Framebuffer> {
 
 
 fn memmap_init(alloc: &mut BuddyAlloc, offset: u64) -> Option<BumpAllocator> {
+    
     if let Some(memmap) = MEMMAP.response() {
+        
         LOGGER.lock().write("Memory map entry!");
         
-        let mut kernel_alloc = None;
         let entries = memmap.entries();
-
+        
+        let mut kernel_alloc = init_kernel_alloc(entries);
+        
         for entry in entries {
-            if entry.type_ == MEMMAP_USABLE  {
+            if let Some(k_alloc) = kernel_alloc.as_mut() && entry.type_ == MEMMAP_USABLE {
                 
+                let mut len = entry.length as usize;
                 let mut base = entry.base;
-                let mut len = entry.length;
 
-                if kernel_alloc.is_none() || len >= KERNEL_HEAP_SIZE as u64 {
-                    kernel_alloc = Some(BumpAllocator::new(base as usize, KERNEL_HEAP_SIZE) );
+                if k_alloc.start == base as usize {
                     base += KERNEL_HEAP_SIZE as u64;
-                    len -= KERNEL_HEAP_SIZE as u64;
+                    len -= KERNEL_HEAP_SIZE
                 }
 
-                alloc.add_region((base + offset) as *mut u8, len as  usize);
+                alloc.add_region(
+                    (base + offset ) as *mut u8, 
+                    len,
+                    k_alloc);
             }
         }
+
         kernel_alloc
+    
     } else {
         LOGGER.lock().write("No memory map available!");
         None
@@ -163,4 +170,13 @@ fn hhdm_init() -> Option<VirtAddr>{
         LOGGER.lock().write("HHDM was NOT initialized!");
         None
     }
+}
+
+fn init_kernel_alloc(entries: &[&Entry]) -> Option<BumpAllocator> {
+    for entry in entries {
+        if entry.type_ == MEMMAP_USABLE && entry.length as usize >= KERNEL_HEAP_SIZE {
+            return Some(BumpAllocator::new(entry.base as usize, KERNEL_HEAP_SIZE));
+        }
+    }
+    None
 }

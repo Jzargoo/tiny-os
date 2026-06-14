@@ -1,7 +1,7 @@
 pub struct BumpAllocator {
-    start: usize,
-    end: usize,
-    current: usize,
+    pub start: usize,
+    pub end: usize,
+    pub current: usize,
 }
 
 impl BumpAllocator {
@@ -14,7 +14,7 @@ impl BumpAllocator {
     }
 
     pub fn alloc(&mut self, size: usize, align: usize) -> Option<*mut u8> {
-        let mut addr = (self.current + align - 1) & !(align - 1);
+        let addr = (self.current + align - 1) & !(align - 1);
 
         if addr + size > self.end {
             return None;
