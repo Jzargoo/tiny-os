@@ -1,13 +1,14 @@
 use core::ptr::slice_from_raw_parts_mut;
 
 use x86_64::PhysAddr;
-use x86_64::structures::paging::{OffsetPageTable, PhysFrame};
+use x86_64::structures::paging::{OffsetPageTable};
 
 use x86_64::{
     VirtAddr, structures::paging::{FrameAllocator, FrameDeallocator, PageSize, PageTable}
 };
 
 use crate::hal::kernel_allocator::BumpAllocator;
+use crate::hal::page_allocator::PageAllocator;
 use crate::logger::LOGGER;
 
 const MIN_ORDER:u8 = 12; // MIN is 4KB or one page
@@ -25,7 +26,8 @@ struct BuddyRoot {
 #[allow(dead_code)]
 pub struct BuddyAlloc{
     ptr_table: OffsetPageTable<'static>,
-    buddy_root: Option<*mut BuddyRoot>
+    buddy_root: Option<*mut BuddyRoot>,
+    k_offset: u64
 }
 
 
@@ -121,7 +123,8 @@ impl BuddyAlloc {
 
         Self { 
             ptr_table: of_pt,
-            buddy_root: None
+            buddy_root: None,
+            k_offset: physical_offset.as_u64()
          }
     }
 
@@ -136,22 +139,14 @@ impl BuddyAlloc {
             
             
             if order < MIN_ORDER {
-
-                let block_size = 1usize << (order as usize);
-
-                curr_addr = unsafe { curr_addr.add(block_size) };
-                
-                size -= block_size;
-
-                continue;
-            
+                return;
             } else if order > MAX_ORDER{
                 order = MAX_ORDER;
             }
 
             
             let root_ptr = kernel_alloc
-                .alloc(
+                .k_alloc(
                     size_of::<BuddyRoot>(),
                     align_of::<BuddyRoot>(),
                 )
@@ -162,7 +157,7 @@ impl BuddyAlloc {
             let bitmap_len = (leaves_count * 2) - 1;
 
             let bitmap_ptr = kernel_alloc
-                .alloc(
+                .k_alloc(
                     bitmap_len, 
                     align_of::<bool>()
                 ).unwrap_or_else(
@@ -201,23 +196,8 @@ impl BuddyAlloc {
         }
     }
 
-}
-
-
-fn calculate_order_ceil(size: usize) -> u8{
-    if size <= 1 {
-        0
-    } else {
-        ((size - 1).ilog2() + 1) as u8
-    }
-}
-
-
-unsafe impl<T: PageSize> FrameAllocator<T> for BuddyAlloc {
-    
-    fn allocate_frame(&mut self) -> Option<x86_64::structures::paging::PhysFrame<T>> {
-        
-        let frame_size_bytes = T::SIZE;
+    fn allocate_bytes(&mut self, frame_size_bytes: usize) 
+        -> Option<super::page_allocator::PhysFrame> {
 
         let order = calculate_order_ceil(frame_size_bytes as usize);
 
@@ -246,15 +226,15 @@ unsafe impl<T: PageSize> FrameAllocator<T> for BuddyAlloc {
  
                     if let Some(block) = root.find_free_block(root.order - order) {
  
-                        let start = PhysAddr::new((root.start + block) as u64);
- 
-                        let frame = PhysFrame::<T>::from_start_address(start).unwrap_or_else(
-                            |_| {
-                                LOGGER.lock().write("Error. frame is not aligned to the beginning of the page. However, it has to be aligned");
-                                panic!();
-                            }
-                        );
- 
+                        let v_start = (root.start + block) as u64;
+                        
+                        let start = v_start - self.k_offset;
+
+                        let frame = super::page_allocator::PhysFrame {
+                            start_address: start as usize,
+                            length_bytes: frame_size_bytes as usize
+                        };
+
                         return Some(frame);
                     }
                 }
@@ -267,8 +247,44 @@ unsafe impl<T: PageSize> FrameAllocator<T> for BuddyAlloc {
 
 }
 
+
+fn calculate_order_ceil(size: usize) -> u8{
+    if size <= 1 {
+        0
+    } else {
+        ((size - 1).ilog2() + 1) as u8
+    }
+}
+
+
+unsafe impl<T: PageSize> FrameAllocator<T> for BuddyAlloc {
+    
+    fn allocate_frame(&mut self) -> Option<x86_64::structures::paging::PhysFrame<T>> {
+        
+        self.allocate_bytes(T::SIZE as usize).map(|frame| {
+            x86_64::structures::paging::PhysFrame::containing_address(
+                PhysAddr::new(frame.start_address as u64)
+            )
+        })
+    }
+}
+
 impl <T: PageSize> FrameDeallocator<T> for BuddyAlloc {
     unsafe fn deallocate_frame(&mut self, frame: x86_64::structures::paging::PhysFrame<T>) {
+        
+    }
+}
+
+impl PageAllocator for BuddyAlloc {
+    
+
+    fn allocate_pages(&mut self, count: usize, pg: super::page_allocator::PageSize) 
+        -> Option<super::page_allocator::PhysFrame> {
+
+        self.allocate_bytes(count * pg.size())
+    }
+
+    fn deallocate_frame(&mut self, frame: crate::hal::page_allocator::PhysFrame) {
         
     }
 }

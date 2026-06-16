@@ -7,7 +7,9 @@ pub mod kernel_allocator;
 
 pub mod bios_info;
 
-pub const KERNEL_HEAP_SIZE: usize = 0x4000; 
+pub mod page_allocator;
+
+pub const KERNEL_HEAP_SIZE: usize = 1024 * 1024 * 4; // 2MB
 
 use framebuffer::Color;
 

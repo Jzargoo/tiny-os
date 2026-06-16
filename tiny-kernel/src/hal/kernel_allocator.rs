@@ -13,7 +13,7 @@ impl BumpAllocator {
         }
     }
 
-    pub fn alloc(&mut self, size: usize, align: usize) -> Option<*mut u8> {
+    pub fn k_alloc(&mut self, size: usize, align: usize) -> Option<*mut u8> {
         let addr = (self.current + align - 1) & !(align - 1);
 
         if addr + size > self.end {
@@ -24,5 +24,4 @@ impl BumpAllocator {
 
         Some(addr as *mut u8)
     }
-
 }

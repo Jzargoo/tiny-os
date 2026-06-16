@@ -12,7 +12,7 @@ use hal::bios_info::BiosInfo;
 
 use core::main;
 
-use crate::{hal::{BLACK, WHITE, framebuffer::{Framebuffer}}, logger::graphycal::{bitmap_font::CELL_SIZE, writer::DisplayWriter}};
+use crate::{hal::{BLACK, WHITE, framebuffer::Framebuffer, page_allocator::{PageAllocator, PageSize}}, logger::{LOGGER, graphycal::{bitmap_font::CELL_SIZE, writer::DisplayWriter}}};
 
 pub extern crate alloc;
 
@@ -21,8 +21,16 @@ pub extern crate alloc;
 pub static ALLOCATOR: allocator::SlubAllocator = allocator::SlubAllocator{}; 
 
 #[panic_handler]
-pub fn panic(_qi: &PanicInfo) -> ! {
+pub fn panic(qi: &PanicInfo) -> ! {
+    
+    LOGGER.lock().write("Kernel panic: ");
+    
+    let error_message = qi.message().as_str().unwrap_or("Unknown error");
+    
+    LOGGER.lock().write(error_message);
+
     panic_flush!();
+    
     loop {}
 }
 
@@ -34,10 +42,13 @@ pub fn kernel_main(bi: &mut BiosInfo) {
         BLACK,
         WHITE, 
         CELL_SIZE);
+
+    
     
     dw.write_string("This is the looooooooooooooooooooooooooooooooooooooooooongest looooooooooooooooooooooooooooooooooooooooooong word in the woooooooooooooooooooooooooooooooooooooooooooorld");
     
+    bi.page_allocator.allocate_pages(10, PageSize::REGULAR(4096));
+
     main();
 
 }
-

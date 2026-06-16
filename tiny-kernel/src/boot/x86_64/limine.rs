@@ -80,7 +80,7 @@ pub  extern "C" fn _start() -> ! {
  
         let virt_addr = hhdm_init().expect("The kernel MUST return offset"); // The kernel MUST return offset
  
-        let mut bi = BiosInfo::new(fb, virt_addr.as_u64(), ka);
+        let mut bi = BiosInfo::new(fb, virt_addr.as_u64(), ka, alloc);
         
         kernel_main(&mut bi);        
     
@@ -130,7 +130,7 @@ fn memmap_init(alloc: &mut BuddyAlloc, offset: u64) -> Option<BumpAllocator> {
         
         let entries = memmap.entries();
         
-        let mut kernel_alloc = init_kernel_alloc(entries);
+        let mut kernel_alloc = init_kernel_alloc(entries, offset);
         
         for entry in entries {
             if let Some(k_alloc) = kernel_alloc.as_mut() && entry.type_ == MEMMAP_USABLE {
@@ -141,6 +141,10 @@ fn memmap_init(alloc: &mut BuddyAlloc, offset: u64) -> Option<BumpAllocator> {
                 if k_alloc.start == base as usize {
                     base += KERNEL_HEAP_SIZE as u64;
                     len -= KERNEL_HEAP_SIZE
+                }
+
+                if len == 0 {
+                    continue;
                 }
 
                 alloc.add_region(
@@ -172,10 +176,10 @@ fn hhdm_init() -> Option<VirtAddr>{
     }
 }
 
-fn init_kernel_alloc(entries: &[&Entry]) -> Option<BumpAllocator> {
+fn init_kernel_alloc(entries: &[&Entry], offset: u64) -> Option<BumpAllocator> {
     for entry in entries {
         if entry.type_ == MEMMAP_USABLE && entry.length as usize >= KERNEL_HEAP_SIZE {
-            return Some(BumpAllocator::new(entry.base as usize, KERNEL_HEAP_SIZE));
+            return Some(BumpAllocator::new(entry.base as usize + offset as usize, KERNEL_HEAP_SIZE));
         }
     }
     None
