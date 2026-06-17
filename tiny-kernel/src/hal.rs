@@ -1,7 +1,6 @@
 pub mod framebuffer;
 
-#[cfg(target_arch = "x86_64")]
-pub mod x86_64_page_allocator;
+pub mod buddy_mem_manager;
 
 pub mod kernel_allocator;
 

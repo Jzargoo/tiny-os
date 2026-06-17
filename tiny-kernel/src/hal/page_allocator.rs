@@ -1,20 +1,11 @@
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum PageSize{
-    REGULAR(usize),
-    LARGE(usize),
-    HUGE(usize),
+    REGULAR,
+    LARGE,
+    HUGE,
 }
 
-impl PageSize {
-    pub fn size(&self) -> usize {
-        match self {
-            PageSize::REGULAR(size) => *size,
-            PageSize::LARGE(size) => *size,
-            PageSize::HUGE(size) => *size,
-        }
-    }
-}
 
 #[derive(Debug, Clone, Copy)]
 pub struct PhysFrame{

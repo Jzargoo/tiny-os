@@ -7,6 +7,7 @@ mod core;
 mod logger;
 mod allocator;
 mod hal;
+mod arch;
 
 use hal::bios_info::BiosInfo;
 

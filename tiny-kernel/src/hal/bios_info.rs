@@ -1,21 +1,19 @@
-use crate::hal::{framebuffer::Framebuffer, kernel_allocator::BumpAllocator, page_allocator::PageAllocator, x86_64_page_allocator::BuddyAlloc};
+use crate::hal::{framebuffer::Framebuffer, kernel_allocator::BumpAllocator, page_allocator::PageAllocator};
 
 #[repr(C)]
 
-pub struct BiosInfo {
+pub struct BiosInfo<'a> {
     pub framebuffer: Framebuffer,
-    pub page_allocator: BuddyAlloc,
+    pub page_allocator: &'a mut dyn PageAllocator,
     pub kernel_alloc: BumpAllocator,
-    pub phys_memory_offset: u64
 }
 
-impl BiosInfo {
-    pub fn new(framebuffer: Framebuffer, phys_addr: u64, bumpAlloc: BumpAllocator, pageAlloc: BuddyAlloc) -> Self{
+impl <'a> BiosInfo<'a> {
+    pub fn new(framebuffer: Framebuffer, bump_alloc: BumpAllocator, page_alloc: &'a mut dyn PageAllocator) -> Self{
         BiosInfo {
             framebuffer,
-            phys_memory_offset: phys_addr,
-            kernel_alloc: bumpAlloc,
-            page_allocator: pageAlloc
+            kernel_alloc: bump_alloc,
+            page_allocator: page_alloc
         }
     }
 }

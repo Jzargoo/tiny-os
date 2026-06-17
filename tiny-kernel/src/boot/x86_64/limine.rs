@@ -4,14 +4,10 @@ use limine::{
     }
 };
 
-use x86_64::VirtAddr;
-
 use crate::{
-    hal::{    
-        KERNEL_HEAP_SIZE, bios_info::BiosInfo, framebuffer::Framebuffer, kernel_allocator::BumpAllocator, x86_64_page_allocator::BuddyAlloc
-    },
-    kernel_main,
-    logger::LOGGER};
+    arch::x86_64::page_allocator::PageAllocationMapper, hal::{    
+        KERNEL_HEAP_SIZE, bios_info::BiosInfo, buddy_mem_manager::BuddyManager, framebuffer::Framebuffer, kernel_allocator::BumpAllocator
+    }, kernel_main, logger::LOGGER};
 
 
     
@@ -70,17 +66,17 @@ pub  extern "C" fn _start() -> ! {
 
     let virt_addr = hhdm_init().expect("The kernel MUST return offset");
     
-    let mut alloc = BuddyAlloc::new(virt_addr);
+    let mut buddy_system  = BuddyManager::new(virt_addr);
 
-    let kernel_alloc = memmap_init(&mut alloc, virt_addr.as_u64());
+    let kernel_alloc = memmap_init(&mut buddy_system, virt_addr);
 
+    let mut page_allocator = PageAllocationMapper::new(virt_addr, buddy_system); 
 
     if let Some(fb) = framebuffer_init() &&  let Some(ka) = kernel_alloc  {
         LOGGER.lock().write("The framebuffer was initilized");
  
-        let virt_addr = hhdm_init().expect("The kernel MUST return offset"); // The kernel MUST return offset
  
-        let mut bi = BiosInfo::new(fb, virt_addr.as_u64(), ka, alloc);
+        let mut bi = BiosInfo::new(fb,  ka, & mut page_allocator);
         
         kernel_main(&mut bi);        
     
@@ -122,7 +118,7 @@ fn framebuffer_init() -> Option<Framebuffer> {
 
 
 
-fn memmap_init(alloc: &mut BuddyAlloc, offset: u64) -> Option<BumpAllocator> {
+fn memmap_init(alloc: &mut BuddyManager, offset: u64) -> Option<BumpAllocator> {
     
     if let Some(memmap) = MEMMAP.response() {
         
@@ -164,11 +160,11 @@ fn memmap_init(alloc: &mut BuddyAlloc, offset: u64) -> Option<BumpAllocator> {
 
 
 
-fn hhdm_init() -> Option<VirtAddr>{
+fn hhdm_init() -> Option<u64>{
     if let Some(resp) = HHDM.response() {
         LOGGER.lock().write("HHDM was initialized!");
         Some(
-            VirtAddr::new(resp.offset)
+            resp.offset
         )
     } else {
         LOGGER.lock().write("HHDM was NOT initialized!");
