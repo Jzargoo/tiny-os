@@ -4,6 +4,7 @@ use crate::hal::{RAINBOW, RED};
 use crate::hal::framebuffer::{Framebuffer, Color};
 use crate::logger::LOGGER;
 use crate::logger::graphycal::bitmap_font::FONT_8X8;
+use crate::println;
 
 #[derive(Debug, Clone, Copy)]
 #[allow(dead_code)]
@@ -42,18 +43,17 @@ impl  DisplayWriter {
     
     pub fn write_string(&mut self, string: &str){
 
-        LOGGER.lock().write("DisplayWriter writing string...");
         
         for char  in string.chars() {
             self.write_symbol(char);
         }
 
-        LOGGER.lock().write("DisplayWriter finished writing string");
+        println!("DisplayWriter finished writing string, current position: row {}, col {}", self.cur_row, self.cur_col);
     }
 
     pub fn write_symbol(&mut self, c: char) {
         if !c.is_ascii() {
-            LOGGER.lock().write("[ERROR] expected ascii but it is not");
+            println!("[ERROR] expected ascii but it is not");
             return;
         }
         match c {
@@ -170,7 +170,7 @@ impl  DisplayWriter {
 impl DisplayWriter {
     pub fn new(fb_ptr: *mut Framebuffer, padding: usize, apf: Color, apb: Color, cell_size: u8) -> Self{
         
-        LOGGER.lock().write("DisplayWriter creating...");
+        println!("DisplayWriter creating...");
         
         let width =  unsafe { (*fb_ptr).width  };
         let height = unsafe { (*fb_ptr).height };

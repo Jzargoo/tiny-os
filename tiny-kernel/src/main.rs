@@ -1,7 +1,7 @@
 #![no_std]
 #![no_main]
 
-use ::core::panic::PanicInfo;
+use ::core::{fmt::Write, panic::PanicInfo};
 mod boot;
 mod core;
 mod logger;
@@ -13,7 +13,7 @@ use hal::bios_info::BiosInfo;
 
 use core::main;
 
-use crate::{hal::{BLACK, WHITE, framebuffer::Framebuffer, page_allocator::{PageAllocator, PageSize}}, logger::{LOGGER, graphycal::{bitmap_font::CELL_SIZE, writer::DisplayWriter}}};
+use crate::{hal::{BLACK, CYAN, GREEN, WHITE, framebuffer::Framebuffer, page_allocator::PageSize}, logger::{LOGGER, graphycal::{bitmap_font::CELL_SIZE, writer::DisplayWriter}}};
 
 pub extern crate alloc;
 
@@ -24,11 +24,9 @@ pub static ALLOCATOR: allocator::SlubAllocator = allocator::SlubAllocator{};
 #[panic_handler]
 pub fn panic(qi: &PanicInfo) -> ! {
     
-    LOGGER.lock().write("Kernel panic: ");
+    print!("Kernel panic: ");
     
-    let error_message = qi.message().as_str().unwrap_or("Unknown error");
-    
-    LOGGER.lock().write(error_message);
+    println!("{}", qi);
 
     panic_flush!();
     
@@ -36,20 +34,26 @@ pub fn panic(qi: &PanicInfo) -> ! {
 }
 
 pub fn kernel_main(bi: &mut BiosInfo) {
+
     
     let mut dw = DisplayWriter::new(
         (&mut bi.framebuffer) as *mut Framebuffer,
         0,
         BLACK,
-        WHITE, 
+        GREEN, 
         CELL_SIZE);
 
+    dw.write_string("Hello world!");
     
     
-    dw.write_string("This is the looooooooooooooooooooooooooooooooooooooooooongest looooooooooooooooooooooooooooooooooooooooooong word in the woooooooooooooooooooooooooooooooooooooooooooorld");
+    let pages = bi.page_allocator.allocate_pages(10, PageSize::REGULAR);
     
-    bi.page_allocator.allocate_pages(10, PageSize::REGULAR(4096));
+    pages.map(|p| {
+        println!("Allocated pages. Phys frame is {:?}", p);
+    }).unwrap_or_else(|| {
+        println!("Failed to allocate pages");
+    });
+
 
     main();
-
 }

@@ -5,7 +5,7 @@ use crate::hal::{buddy_mem_manager::BuddyManager, page_allocator::{PageAllocator
 pub const REGULAR_PAGE_SIZE: usize = 1024 * 4; // 4 kib 
 pub const LARGE_PAGE_SIZE: usize = 1024 * 1024 * 2; // 2 mib
 pub const HUGE_PAGE_SIZE: usize = 1024 * 1024 * 1024; // 1 gib
-
+#[derive(Debug)]
 pub struct PageAllocationMapper {
     buddy_manager: BuddyManager,
     ptr_table: OffsetPageTable<'static>,

@@ -1,3 +1,5 @@
+use core::fmt::Write;
+
 use limine::{
     self, BaseRevision, RequestsEndMarker, RequestsStartMarker, memmap::{Entry, MEMMAP_USABLE}, request::{
         EntryPointRequest, FramebufferRequest, HhdmRequest, MemmapRequest, StackSizeRequest
@@ -7,7 +9,7 @@ use limine::{
 use crate::{
     arch::x86_64::page_allocator::PageAllocationMapper, hal::{    
         KERNEL_HEAP_SIZE, bios_info::BiosInfo, buddy_mem_manager::BuddyManager, framebuffer::Framebuffer, kernel_allocator::BumpAllocator
-    }, kernel_main, logger::LOGGER};
+    }, kernel_main, logger::LOGGER, println};
 
 
     
@@ -27,7 +29,7 @@ pub static FRAMEBUFFER_REQUEST: FramebufferRequest = FramebufferRequest::new();
 
 #[used]
 #[unsafe(link_section = ".requests")]
-pub static STACK: StackSizeRequest = StackSizeRequest::new(65536);
+pub static STACK: StackSizeRequest = StackSizeRequest::new(1024 * 1024 * 16);
 
 
 
@@ -61,27 +63,45 @@ pub static REQUESTS_END: RequestsEndMarker = RequestsEndMarker::new();
 
 #[unsafe(no_mangle)]
 pub  extern "C" fn _start() -> ! {
-
-    LOGGER.lock().write("The kernel is starting...");
+    
+    println!("The kernel is starting!");
 
     let virt_addr = hhdm_init().expect("The kernel MUST return offset");
+
+    #[cfg(debug_assertions)]
+    println!("HHDM is {}", virt_addr);
     
     let mut buddy_system  = BuddyManager::new(virt_addr);
+    
+    #[cfg(debug_assertions)]
+    println!("Buddy manager is {:?}", buddy_system);
 
     let kernel_alloc = memmap_init(&mut buddy_system, virt_addr);
 
-    let mut page_allocator = PageAllocationMapper::new(virt_addr, buddy_system); 
+    let mut page_allocator = PageAllocationMapper::new(virt_addr, buddy_system);
+
+    #[cfg(debug_assertions)]
+    println!("Page allocator is {:?}", page_allocator);
 
     if let Some(fb) = framebuffer_init() &&  let Some(ka) = kernel_alloc  {
-        LOGGER.lock().write("The framebuffer was initilized");
- 
+        println!("The framebuffer was initilized");
+
+        
+        #[cfg(debug_assertions)]
+        println!("Framebuffer is {:?}", fb);
+
+
+        #[cfg(debug_assertions)]
+        println!("Bump allocator is {:?}", ka);
  
         let mut bi = BiosInfo::new(fb,  ka, & mut page_allocator);
-        
+ 
+
         kernel_main(&mut bi);        
     
     } else {
-        LOGGER.lock().write("The framebuffer or kernel allocator/heap was not initilized");
+        println!("The framebuffer or kernel allocator/heap was not initilized");
+        panic!();
     } 
 
     loop {}
@@ -95,7 +115,7 @@ fn framebuffer_init() -> Option<Framebuffer> {
         
 
         let buffer = buff.framebuffers()[0];
-        // test_draw_square(buffer);
+        
         let fb = Framebuffer::new(
             buffer.address(),
             buffer.width,
@@ -109,7 +129,6 @@ fn framebuffer_init() -> Option<Framebuffer> {
         Some(fb)
     
     } else {
-        LOGGER.lock().write("Framebuffer was not initialized. Response is none");
         None
     } 
 
@@ -122,7 +141,8 @@ fn memmap_init(alloc: &mut BuddyManager, offset: u64) -> Option<BumpAllocator> {
     
     if let Some(memmap) = MEMMAP.response() {
         
-        LOGGER.lock().write("Memory map entry!");
+        println!(" Initializing memory map entry!");
+
         
         let entries = memmap.entries();
         
@@ -130,7 +150,7 @@ fn memmap_init(alloc: &mut BuddyManager, offset: u64) -> Option<BumpAllocator> {
         
         for entry in entries {
             if let Some(k_alloc) = kernel_alloc.as_mut() && entry.type_ == MEMMAP_USABLE {
-                
+
                 let mut len = entry.length as usize;
                 let mut base = entry.base;
 
@@ -143,6 +163,10 @@ fn memmap_init(alloc: &mut BuddyManager, offset: u64) -> Option<BumpAllocator> {
                     continue;
                 }
 
+
+                #[cfg(debug_assertions)]
+                println!("Memmap entry has base {} and length {}", base, len);
+
                 alloc.add_region(
                     (base + offset ) as *mut u8, 
                     len,
@@ -153,7 +177,7 @@ fn memmap_init(alloc: &mut BuddyManager, offset: u64) -> Option<BumpAllocator> {
         kernel_alloc
     
     } else {
-        LOGGER.lock().write("No memory map available!");
+        println!("No memory map available!");
         None
     }
 }
@@ -162,12 +186,10 @@ fn memmap_init(alloc: &mut BuddyManager, offset: u64) -> Option<BumpAllocator> {
 
 fn hhdm_init() -> Option<u64>{
     if let Some(resp) = HHDM.response() {
-        LOGGER.lock().write("HHDM was initialized!");
         Some(
             resp.offset
         )
     } else {
-        LOGGER.lock().write("HHDM was NOT initialized!");
         None
     }
 }

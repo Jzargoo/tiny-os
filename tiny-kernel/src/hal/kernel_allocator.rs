@@ -1,3 +1,4 @@
+#[derive(Debug)]
 pub struct BumpAllocator {
     pub start: usize,
     pub end: usize,
