@@ -16,7 +16,8 @@ pub struct  Logger {
                 Box<dyn WriteSink + Send + Sync>
             >
         >,
-    buffer: RingBuffer 
+    buffer: RingBuffer,
+    scratch_buffer: [u8; 1024], 
 }
 
 impl Logger {
@@ -24,12 +25,13 @@ impl Logger {
     pub const fn new()-> Self{
         Logger {
             sinks: None,
-            buffer: RingBuffer::new()
+            buffer: RingBuffer::new(),
+            scratch_buffer: [0; 1024]
         }
     }
 
     pub fn read(&mut self) ->Option<&str> {
-        self.buffer.pop()
+        self.buffer.popln(&mut self.scratch_buffer)
     }
 
 
@@ -68,7 +70,11 @@ impl Logger {
 
 impl Logger {
     
-    pub fn write(&mut self, data: &'static str){
+    fn push_byte(&mut self, char: u8){
+        self.buffer.push_byte(char);
+    }
+
+    fn pushln(&mut self, data: &'static str){
         self.buffer.push(data);
         self.buffer.push("\n\r");
     }
@@ -118,4 +124,15 @@ impl Logger {
         }
     }
 
+}
+
+impl Write for Logger{
+    fn write_str(&mut self, s: &str) -> core::fmt::Result {
+        
+        for byte in s.bytes() {
+            self.push_byte(byte);
+        }
+        
+        Ok(())
+    }
 }
