@@ -1,5 +1,6 @@
 use core::ptr::slice_from_raw_parts_mut;
 use crate::hal::kernel_allocator::BumpAllocator;
+use crate::hal::page_allocator::KernelMemRegion;
 use crate::println; 
 
 const MIN_ORDER: u8 = 12; // 4KB 
@@ -136,7 +137,7 @@ impl BuddyManager {
         }
     }
 
-    pub fn allocate_bytes(&mut self, frame_size_bytes: usize) -> Option<super::page_allocator::PhysFrame> {
+    pub fn allocate_bytes(&mut self, frame_size_bytes: usize) -> Option<KernelMemRegion> {
         let order = calculate_order_ceil(frame_size_bytes);
 
         if order < MIN_ORDER {
@@ -162,12 +163,12 @@ impl BuddyManager {
                         
                         println!("[BUDDY] Allocated block: phys=0x{:x}, requested_bytes={}", v_start, frame_size_bytes);
 
-                        let frame = super::page_allocator::PhysFrame {
-                            start_address: v_start as usize,
-                            length_bytes: frame_size_bytes
+                        let region = KernelMemRegion {
+                            start_paddr: v_start,  
+                            length_bytes: 1 << order
                         };
 
-                        return Some(frame);
+                        return Some(region);
                     }
                 }
                 current = root.next;

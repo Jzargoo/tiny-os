@@ -1,7 +1,7 @@
 #![no_std]
 #![no_main]
 
-use ::core::{fmt::Write, panic::PanicInfo};
+use ::core::panic::PanicInfo;
 mod boot;
 mod core;
 mod logger;
@@ -13,7 +13,7 @@ use hal::bios_info::BiosInfo;
 
 use core::main;
 
-use crate::{hal::{BLACK, CYAN, GREEN, WHITE, framebuffer::Framebuffer, page_allocator::PageSize}, logger::{LOGGER, graphycal::{bitmap_font::CELL_SIZE, writer::DisplayWriter}}};
+use crate::{hal::{BLACK, GREEN, framebuffer::Framebuffer, page_allocator::PageSize}, logger::{graphycal::{bitmap_font::CELL_SIZE, writer::DisplayWriter}}};
 
 pub extern crate alloc;
 
@@ -26,6 +26,7 @@ pub fn panic(qi: &PanicInfo) -> ! {
     
     print!("Kernel panic: ");
     
+    #[cfg(debug_assertions)]
     println!("{}", qi);
 
     panic_flush!();
@@ -49,7 +50,7 @@ pub fn kernel_main(bi: &mut BiosInfo) {
     let pages = bi.page_allocator.allocate_pages(10, PageSize::REGULAR);
     
     pages.map(|p| {
-        println!("Allocated pages. Phys frame is {:?}", p);
+        println!("Allocated pages. Virt pages are {:?}", p);
     }).unwrap_or_else(|| {
         println!("Failed to allocate pages");
     });

@@ -141,7 +141,7 @@ fn memmap_init(alloc: &mut BuddyManager, offset: u64) -> Option<BumpAllocator> {
     
     if let Some(memmap) = MEMMAP.response() {
         
-        println!(" Initializing memory map entry!");
+        println!("Initializing memory map entry!");
 
         
         let entries = memmap.entries();
