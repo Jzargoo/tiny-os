@@ -1,4 +1,6 @@
 use core::ptr::slice_from_raw_parts_mut;
+use x86_64::structures::paging::RecursivePageTable;
+
 use crate::hal::kernel_allocator::BumpAllocator;
 use crate::hal::page_allocator::KernelMemRegion;
 use crate::println; 
@@ -9,9 +11,13 @@ const MAX_ORDER: u8 = 21; // 2MB
 #[allow(dead_code)]
 struct BuddyRoot {
     next: Option<*mut BuddyRoot>,
-    start: usize,
+    start: u64,
     bitmap: *mut [bool],
     order: u8, 
+}
+
+pub struct DeallocationError<'a> {
+    pub error_message: &'a str
 }
 
 #[allow(dead_code)]
@@ -25,7 +31,6 @@ impl BuddyRoot {
     fn find_free_block(&mut self, generation: u8) -> Option<usize> { 
         let bitmap = unsafe {
             self.bitmap.as_mut().unwrap_or_else(|| {
-                // Используем новый макрос для критической ошибки
                 println!("[BUDDY] CRITICAL: Bitmap in buddy root was not initialized!");
                 panic!();
             })
@@ -68,6 +73,85 @@ impl BuddyRoot {
         }
 
         None
+    }
+}
+
+// GENERATION INDEX is the index of current generation without any affects of the other layers.
+// For example 
+//   0
+// 1    2 their indexes. GENERATION INDEX looks like index of [1,2] 
+impl BuddyRoot {
+    fn free<'a>(&mut self, generation: u8, frame_start: u64) -> Result<(), DeallocationError<'a> >{
+        
+        let frame_offset = frame_start - self.start;
+        
+        let node_size = 1 << (self.order - generation); 
+
+        let bitmap = unsafe {
+            self.bitmap.as_mut().unwrap_or_else(
+                || {
+                    println!("Error. Buddy root is incorrect and did not have bitmap.");
+                    panic!()
+                }
+            )   
+        };
+        
+        if frame_offset % node_size != 0 {
+            
+            #[cfg(debug_assertions)]
+            println!("[BUDDY] error: Frame start address was not aligned: address {} and subsequent offset: {} not aligned with offset {} and root start: {}", frame_start, frame_offset,node_size, self.start);
+            
+            return Err(
+                DeallocationError { 
+                    error_message: "Frame start address was not aligned on nodes in the provided generation" 
+                }
+            );
+
+        } 
+
+        let gen_index = frame_offset as usize / 1 << (self.order - generation);
+
+        BuddyRoot::recursive_freeing_nodes(bitmap, gen_index, generation);
+    
+        Ok(())
+        
+    } 
+
+    fn recursive_freeing_nodes(bitmap: &mut[bool], generation_index: usize, generation: u8) {
+
+        let bitmap_index = BuddyRoot::get_index_by_generation_index(generation_index, generation);
+        
+        if generation == 0 {
+
+            #[cfg(debug_assertions)]
+            println!("[BUDDY] a root was freed!");
+
+            bitmap[bitmap_index] = false;
+            return;
+        }
+
+        let buddy = if generation_index % 2 == 0 {
+            bitmap_index + 1
+        } else {
+            bitmap_index - 1
+        };
+
+
+        bitmap[bitmap_index] = false;
+
+        if bitmap[buddy] {
+            #[cfg(debug_assertions)]
+            println!("[BUDDY] buddy with index {} is busy", buddy);
+
+            return;
+        } else {
+            let parent_index = generation_index / 2;
+            BuddyRoot::recursive_freeing_nodes(bitmap, parent_index, generation -1);
+        }
+    }
+
+    fn get_index_by_generation_index(gener_index:usize, generation: u8) -> usize{
+        gener_index * generation as usize    
     }
 }
 
@@ -121,7 +205,7 @@ impl BuddyManager {
 
                 root_ptr.write(BuddyRoot { 
                     next: self.buddy_root,
-                    start: curr_addr as usize,
+                    start: curr_addr as u64,
                     bitmap,
                     order
                 });
@@ -135,6 +219,32 @@ impl BuddyManager {
             curr_addr = unsafe { curr_addr.add(block_size) };
             size -= block_size;
         }
+    }
+
+    
+    pub fn  deallocate_bytes<'a>(&mut self, frame_start: u64, frame_size_bytes: usize) -> Result<(), DeallocationError<'a> >{
+        let order = calculate_order_ceil(frame_size_bytes);
+
+        let mut current = self.buddy_root;
+
+        while let Some(node_ptr) = current {
+            
+                let root = unsafe {
+                    node_ptr.as_mut().unwrap_or_else(|| {
+                        println!("[BUDDY] CRITICAL: Corrupted linked list! Invalid buddy root pointer encountered.");
+                        panic!();
+                    })
+                };
+
+
+            if root.start <= frame_start && frame_start <= (root.start + (1 << root.order))  {
+                root.free(root.order  - order, frame_start)?;
+            } else {
+                current = root.next
+            }
+        }
+
+        Ok(())
     }
 
     pub fn allocate_bytes(&mut self, frame_size_bytes: usize) -> Option<KernelMemRegion> {
@@ -159,7 +269,7 @@ impl BuddyManager {
                 
                 if order <= root.order {
                     if let Some(block) = root.find_free_block(root.order - order) {
-                        let v_start = (root.start + block) as u64;
+                        let v_start = root.start + block as u64;
                         
                         println!("[BUDDY] Allocated block: phys=0x{:x}, requested_bytes={}", v_start, frame_size_bytes);
 
