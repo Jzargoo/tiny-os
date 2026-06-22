@@ -1,6 +1,6 @@
-use x86_64::{PhysAddr, VirtAddr, structures::paging::{FrameAllocator, FrameDeallocator, Mapper, OffsetPageTable, Page, PageTable, PageTableFlags, Size4KiB}};
+use x86_64::{PhysAddr, VirtAddr, structures::paging::{FrameAllocator, FrameDeallocator, Mapper, OffsetPageTable, Page, PageTable, PageTableFlags, Size1GiB, Size2MiB, Size4KiB, mapper::MapperFlush}};
 
-use crate::hal::{buddy_mem_manager::BuddyManager, page_allocator::{PageAllocator, PageSize, VirtPages}};
+use crate::{hal::{buddy_mem_manager::BuddyManager, page_allocator::{PageAllocator, PageSize::{self, LARGE, REGULAR}, VirtPages}}, println};
 
 #[derive(Debug)]
 pub struct PageAllocationMapper {
@@ -28,7 +28,39 @@ impl PageAllocationMapper {
 }
 
 impl PageAllocationMapper {
-    fn update_page_table(&mut self, pstart_addr: u64, vstart_addr: u64, page_size: PageSize, count: u8){
+    fn  remove_from_page_table(&mut self, pages: VirtPages) {
+
+        let free = |mapper: &mut OffsetPageTable| match pages.page_size {
+            PageSize::REGULAR => free_pages_of_type::<Size4KiB, _>(mapper, pages),
+            PageSize::LARGE   => free_pages_of_type::<Size2MiB, _>(mapper, pages),
+            PageSize::HUGE    => free_pages_of_type::<Size1GiB, _>(mapper, pages),
+        };
+
+        free(&mut self.ptr_table);
+    }
+}
+
+fn free_pages_of_type<S,T>(mapper:&mut T, pages: VirtPages) 
+    where
+        S: x86_64::structures::paging::page::PageSize,
+        T: Mapper<S>, {
+
+    for i in 0..pages.page_count as u64 {
+            
+        let offset = S::SIZE * i;
+            
+        let vaddr = VirtAddr::new(pages.start_addr + offset);
+        
+        if let Ok(page) = Page::<S>::from_start_address(vaddr) {
+            if let Ok((_frame, flush)) = mapper.unmap(page) {
+                flush.flush();
+            }
+        }
+    }
+}
+
+impl PageAllocationMapper {
+    fn add_into_page_table(&mut self, pstart_addr: u64, vstart_addr: u64, page_size: PageSize, count: u8){
 
 
         let vaddr = VirtAddr::new(vstart_addr);
@@ -114,14 +146,14 @@ unsafe impl<T: x86_64::structures::paging::PageSize> FrameAllocator<T> for &mut 
 }
 
 impl <T: x86_64::structures::paging::PageSize> FrameDeallocator<T> for BuddyManager {
-    unsafe fn deallocate_frame(&mut self, _frame: x86_64::structures::paging::PhysFrame<T>) {
-        
+    unsafe fn deallocate_frame(&mut self, frame: x86_64::structures::paging::PhysFrame<T>) {
+        let _ = self.deallocate_bytes(frame.start_address().as_u64(), frame.size() as usize);
     }
 }
 
 impl <T: x86_64::structures::paging::PageSize> FrameDeallocator<T> for &mut BuddyManager {
-    unsafe fn deallocate_frame(&mut self, _frame: x86_64::structures::paging::PhysFrame<T>) {
-        
+    unsafe fn deallocate_frame(&mut self, frame: x86_64::structures::paging::PhysFrame<T>) {
+        let _ = self.deallocate_bytes(frame.start_address().as_u64(), frame.size() as usize);
     }
 }
 
@@ -134,7 +166,7 @@ impl PageAllocator for PageAllocationMapper {
         if let Some(frame) = 
             self.buddy_manager.allocate_bytes(count as usize * PageSize::bytes_from_page_size(pg)
         ) {
-            self.update_page_table(
+            self.add_into_page_table(
                 frame.start_paddr - self.k_offset,
                 frame.start_paddr,
                 pg, count
@@ -153,7 +185,14 @@ impl PageAllocator for PageAllocationMapper {
     }
 
     fn deallocate_pages(&mut self, frame: VirtPages) {
-        todo!()        
+        let bytes = frame.page_count as usize * PageSize::bytes_from_page_size(frame.page_size);  
+        
+        if let Ok(_) = self.buddy_manager.deallocate_bytes(frame.start_addr, bytes) {
+            self.remove_from_page_table(frame);
+            #[cfg(debug_assertions)]
+            println!("Successfully removed pages in mapper and bytes in buddy system!")
+        }
+
     }
     
     fn kernel_allocate_pages(&mut self, count: u8, pg: PageSize) -> Option<VirtPages> {
@@ -162,7 +201,7 @@ impl PageAllocator for PageAllocationMapper {
             self.buddy_manager.allocate_bytes(count as usize * PageSize::bytes_from_page_size(pg)
         ) {
             // A simple but important difference between invokes
-            self.update_page_table(
+            self.add_into_page_table(
                 frame.start_paddr,
                 frame.start_paddr,
                 pg, count
@@ -179,9 +218,5 @@ impl PageAllocator for PageAllocationMapper {
             None
         }
 
-    }
-    
-    fn kernel_deallocate_pages(&mut self, frame: VirtPages) {
-        todo!()
     }
 }
