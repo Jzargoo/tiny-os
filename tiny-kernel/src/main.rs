@@ -47,7 +47,7 @@ pub fn kernel_main(bi: &mut BiosInfo) {
     dw.write_string("Hello world!");
     
     
-    let pages = bi.page_allocator.allocate_pages(10, PageSize::REGULAR);
+    let pages = bi.page_allocator.kernel_allocate_pages(10, PageSize::REGULAR);
     
     pages.map(|p| {
         println!("Allocated pages. Virt pages are {:?}", p);
@@ -57,4 +57,6 @@ pub fn kernel_main(bi: &mut BiosInfo) {
 
 
     main();
+
+    panic!("TEST PANIC!");
 }

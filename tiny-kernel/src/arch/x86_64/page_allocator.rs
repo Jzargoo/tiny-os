@@ -1,6 +1,6 @@
 use x86_64::{PhysAddr, VirtAddr, structures::paging::{FrameAllocator, FrameDeallocator, Mapper, OffsetPageTable, Page, PageTable, PageTableFlags, Size1GiB, Size2MiB, Size4KiB, mapper::MapperFlush}};
 
-use crate::{hal::{buddy_mem_manager::BuddyManager, page_allocator::{PageAllocator, PageSize::{self, LARGE, REGULAR}, VirtPages}}, println};
+use crate::{hal::{buddy_mem_manager::BuddyManager, page_allocator::{PageAllocator, PageSize, VirtPages}}, println};
 
 #[derive(Debug)]
 pub struct PageAllocationMapper {
@@ -135,7 +135,6 @@ unsafe impl<T: x86_64::structures::paging::PageSize> FrameAllocator<T> for Buddy
 }
 
 unsafe impl<T: x86_64::structures::paging::PageSize> FrameAllocator<T> for &mut BuddyManager {
-    
     fn allocate_frame(&mut self) -> Option<x86_64::structures::paging::PhysFrame<T>> {
         self.allocate_bytes(T::SIZE as usize).map(|frame| {
             x86_64::structures::paging::PhysFrame::containing_address(
@@ -167,14 +166,14 @@ impl PageAllocator for PageAllocationMapper {
             self.buddy_manager.allocate_bytes(count as usize * PageSize::bytes_from_page_size(pg)
         ) {
             self.add_into_page_table(
-                frame.start_paddr - self.k_offset,
+                frame.start_paddr,
                 frame.start_paddr,
                 pg, count
             );
             
             Some(
                 VirtPages{
-                    start_addr: frame.start_paddr - self.k_offset,
+                    start_addr: frame.start_paddr,
                     page_count: count,
                     page_size: pg
                 }
@@ -191,6 +190,20 @@ impl PageAllocator for PageAllocationMapper {
             self.remove_from_page_table(frame);
             #[cfg(debug_assertions)]
             println!("Successfully removed pages in mapper and bytes in buddy system!")
+        } else {
+            panic!("Returned an error in deallocating page table. CANNOT catch errors")
+        }
+
+    }
+
+    fn kernel_deallocate_pages(&mut self, frame: VirtPages) {
+        let bytes = frame.page_count as usize * PageSize::bytes_from_page_size(frame.page_size);  
+        
+        if let Ok(_) = self.buddy_manager.deallocate_bytes(frame.start_addr, bytes) {
+            #[cfg(debug_assertions)]
+            println!("Successfully removed pages in mapper and bytes in buddy system!")
+        } else {
+            panic!("Returned an error in deallocating page table. CANNOT catch errors")
         }
 
     }
@@ -200,20 +213,17 @@ impl PageAllocator for PageAllocationMapper {
         if let Some(frame) = 
             self.buddy_manager.allocate_bytes(count as usize * PageSize::bytes_from_page_size(pg)
         ) {
-            // A simple but important difference between invokes
-            self.add_into_page_table(
-                frame.start_paddr,
-                frame.start_paddr,
-                pg, count
-            );
             
+            // There is not sense in page allocation for page table in kernel because it has been already allocated 
+
             Some(
                 VirtPages{
-                    start_addr: frame.start_paddr - self.k_offset,
+                    start_addr: frame.start_paddr + self.k_offset,
                     page_count: count,
                     page_size: pg
                 }
             )
+
         } else {
             None
         }

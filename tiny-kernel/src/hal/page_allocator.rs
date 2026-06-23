@@ -68,6 +68,8 @@ pub trait PageAllocator {
     fn allocate_pages(&mut self, count: u8, pg: PageSize) -> Option<VirtPages>;
 
     fn deallocate_pages(&mut self, pages: VirtPages);
+    
+    fn kernel_deallocate_pages(&mut self, pages: VirtPages);
 
     fn allocate_page(&mut self, pg: PageSize) -> Option<VirtPages> {
         self.allocate_pages(1, pg)

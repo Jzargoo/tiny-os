@@ -71,7 +71,7 @@ pub  extern "C" fn _start() -> ! {
     #[cfg(debug_assertions)]
     println!("HHDM is {}", virt_addr);
     
-    let mut buddy_system  = BuddyManager::new(virt_addr);
+    let mut buddy_system  = BuddyManager::new();
     
     #[cfg(debug_assertions)]
     println!("Buddy manager is {:?}", buddy_system);
@@ -168,9 +168,10 @@ fn memmap_init(alloc: &mut BuddyManager, offset: u64) -> Option<BumpAllocator> {
                 println!("Memmap entry has base {} and length {}", base, len);
 
                 alloc.add_region(
-                    (base + offset ) as *mut u8, 
+                    base as *mut u8, 
                     len,
-                    k_alloc);
+                    k_alloc
+                );
             }
         }
 

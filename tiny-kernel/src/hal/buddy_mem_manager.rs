@@ -1,5 +1,4 @@
 use core::ptr::slice_from_raw_parts_mut;
-use x86_64::structures::paging::RecursivePageTable;
 
 use crate::hal::kernel_allocator::BumpAllocator;
 use crate::hal::page_allocator::KernelMemRegion;
@@ -24,7 +23,6 @@ pub struct DeallocationError<'a> {
 #[derive(Debug)]
 pub struct BuddyManager {
     buddy_root: Option<*mut BuddyRoot>,
-    k_offset: u64
 }
 
 impl BuddyRoot {
@@ -158,10 +156,9 @@ impl BuddyRoot {
 #[allow(dead_code)]
 impl BuddyManager {
     
-    pub fn new(physical_offset: u64) -> Self {
+    pub fn new() -> Self {
         Self { 
-            buddy_root: None,
-            k_offset: physical_offset
+            buddy_root: None
         }
     }
 
@@ -217,6 +214,7 @@ impl BuddyManager {
             println!("[BUDDY]   Created Root Node: base=0x{:x}, order={}, elements={}", curr_addr as usize, order, bitmap_len);
 
             curr_addr = unsafe { curr_addr.add(block_size) };
+
             size -= block_size;
         }
     }
