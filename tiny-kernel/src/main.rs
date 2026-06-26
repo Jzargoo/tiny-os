@@ -13,13 +13,13 @@ use hal::bios_info::BiosInfo;
 
 use core::main;
 
-use crate::{hal::{BLACK, GREEN, framebuffer::Framebuffer, page_allocator::PageSize}, logger::{graphycal::{bitmap_font::CELL_SIZE, writer::DisplayWriter}}};
+use crate::{allocator::SlubAllocator, hal::{BLACK, GREEN, framebuffer::Framebuffer, page_allocator::PageSize}, logger::graphycal::{bitmap_font::CELL_SIZE, writer::DisplayWriter}};
 
 pub extern crate alloc;
 
 
 #[global_allocator]
-pub static ALLOCATOR: allocator::SlubAllocator = allocator::SlubAllocator{}; 
+pub static ALLOCATOR: SlubAllocator = SlubAllocator::new(); 
 
 #[panic_handler]
 pub fn panic(qi: &PanicInfo) -> ! {
@@ -51,9 +51,12 @@ pub fn kernel_main(bi: &mut BiosInfo) {
     
     pages.map(|p| {
         println!("Allocated pages. Virt pages are {:?}", p);
+        bi.page_allocator.kernel_deallocate_pages(p);
     }).unwrap_or_else(|| {
         println!("Failed to allocate pages");
     });
+
+    
 
 
     main();
