@@ -1,5 +1,7 @@
 use core::ptr::null_mut;
 
+use crate::hal::page_allocator::{PageAllocator, PageSize::REGULAR};
+
 const ALIGN_MASK: usize =15;
 
 pub struct Slab {
@@ -14,7 +16,8 @@ pub struct ListNode {
 #[repr(C, align(16))]
 pub struct k_mem_cache_node {
     count: usize,
-    pub first: *mut Slab,
+    pub active: *mut Slab,
+    pub partial_first: *mut Slab
 }
 
 #[repr(C, align(16))]
@@ -29,7 +32,8 @@ impl k_mem_cache {
             object_size,
             node: k_mem_cache_node{
                 count: 0,
-                first: null_mut()
+                partial_first: null_mut(),
+                active: null_mut()
             }
         }
     } 
@@ -48,6 +52,7 @@ impl k_mem_cache {
         let page_end_addr = unsafe { page_start_addr.add(page_size) };
 
         while unsafe { obj_curr_ptr.add(self.object_size as usize) <= page_end_addr } {
+           
             let curr_node_ptr = obj_curr_ptr as *mut ListNode;
 
             unsafe { (*curr_node_ptr).next = None };
@@ -72,16 +77,48 @@ impl k_mem_cache {
             );
         }
 
-        if self.node.first.is_null() {
-            self.node.first = slab_ptr;
-            self.node.count = 1;
+        if self.node.active.is_null() {
+            self.node.active = slab_ptr;
+            self.node.count = 0; // occured only when partial first is null so it is empty
         } else {
-            unsafe { (*slab_ptr).next = Some (self.node.first) } 
-            self.node.first = slab_ptr;
+            unsafe { (*self.node.active).next = Some(self.node.partial_first) };
+            
+            self.node.partial_first = self.node.active;
+
+            self.node.active = slab_ptr;
+            
             self.node.count += 1;
         }
 
     }
+
+    pub fn change_active(&mut self, alloc: *mut dyn PageAllocator) {
+        if self.node.partial_first.is_null() {
+            let pages = unsafe { (*alloc).kernel_allocate_page(REGULAR)};
+
+            if let Some(page) = pages {
+                self.grow(page.start_addr as *mut u8, page.calc_bytes());
+            } else {
+                return; // we can do nothing 
+            }
+
+            self.node.partial_first = null_mut()
+        } else {
+            self.node.active = self.node.partial_first;
+            self.node.partial_first = unsafe{  
+                let next = (*self.node.active).next;
+
+                (*self.node.active).next = None;
+
+                match next {
+                    None => null_mut(),
+                    Some(x) => x
+                }
+            };
+        }
+
+    }
+
 }
 
 /*

@@ -26,66 +26,46 @@ unsafe impl GlobalAlloc for SlubAllocator {
 
         let mut cache = self.caches[level_cache].lock();
         
-        let page_alloc_ptr = self.page_alloc.lock().expect("expected initiated page allocator");
-
-        if cache.node.first.is_null() {
+        if cache.node.active.is_null() {
             
+            let page_alloc_ptr = self.page_alloc.lock().expect("expected initiated page allocator");
 
-            let new_page = unsafe { 
-                (*page_alloc_ptr).kernel_allocate_page(crate::hal::page_allocator::PageSize::REGULAR) 
-            };
+            let vp = unsafe { (*page_alloc_ptr).kernel_allocate_page(crate::hal::page_allocator::PageSize::REGULAR) };
 
-            match new_page {
-                None => return null_mut(),
-                Some(vp) => cache.grow(vp.start_addr as *mut u8, vp.calc_bytes()),
-            }    
-        }
-
-        let mut allocated_ptr: *mut u8 = null_mut();
-
-        let mut slab_ptr = cache.node.first;
-
-        while !slab_ptr.is_null() {
-            unsafe {
-                if let Some(node_ptr) = (*slab_ptr).free_list_head {
-                    (*slab_ptr).free_list_head = (*node_ptr).next;
-                    allocated_ptr = node_ptr as *mut u8;
-                    break;
-                } else {
-                    slab_ptr = match (*slab_ptr).next {
-                        Some(next_ptr) => next_ptr,
-                        None => null_mut(),
-                    };
-                }
+            if let Some(page) = vp {
+                cache.grow(page.start_addr as *mut u8, page.calc_bytes());
+            } else {
+                return null_mut(); // Alloc could not allocate a page, so out of space situation 
             }
-        }
 
-        if allocated_ptr.is_null() {
-            let new_page = unsafe { 
-                (*page_alloc_ptr).kernel_allocate_page(crate::hal::page_allocator::PageSize::REGULAR) 
-            };
-
-            match new_page {
-                None => return null_mut(), // Совсем кончилась память в системе
-                Some(vp) => {
-                    cache.grow(vp.start_addr as *mut u8, vp.calc_bytes());
+        } else if unsafe { (*cache.node.active).free_list_head.is_none() } {
+            let page_alloc_ptr = self.page_alloc.lock().expect("expected initiated page allocator");
             
-                    let fresh_slab_ptr = cache.node.first;
-                    
-                    unsafe {
-                        if let Some(node_ptr) = (*fresh_slab_ptr).free_list_head {
-                                (*fresh_slab_ptr).free_list_head = (*node_ptr).next;
-                                allocated_ptr = node_ptr as *mut u8;
-                        }
-                    }
-                }
-            }
+            cache.change_active(page_alloc_ptr);
         }
 
-        allocated_ptr
+        if let Some(head) = unsafe { (*cache.node.active).free_list_head } {
+            unsafe { (*cache.node.active).free_list_head = (*head).next; };
+            
+            head as *mut u8
+
+        }  else {
+            null_mut()
+        }
     }
 
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
+
+        let level_cache = match self.evaluate_level_cache(layout.size()) {
+            None => return,
+            Some(i) => i
+        };
+
+        let cache = self.caches[level_cache].lock();
+
+        let slab = cache.node.first.
+
+        
         panic!("Deallocation was not implemented!")
     }
 }
@@ -163,6 +143,9 @@ impl SlubAllocator {
 
         (*alloc_guard) = Some(alloc)
     }
+
+
+
 }
 
 unsafe impl Send for SlubAllocator {}
