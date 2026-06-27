@@ -9,8 +9,6 @@ pub struct PageAllocationMapper {
     k_offset: u64 
 }
 
-
-
 impl PageAllocationMapper {
     pub fn new(physical_offset: u64, buddy: BuddyManager) -> Self {
         let pml4 = active_page_table_lvl4(physical_offset.clone());

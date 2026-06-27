@@ -2,25 +2,25 @@ use core::ptr::null_mut;
 
 const ALIGN_MASK: usize =15;
 
-struct Slab {
-    free_list_head: Option<*mut ListNode>,
-    next: Option<*mut Slab>,    
+pub struct Slab {
+    pub free_list_head: Option<*mut ListNode>,
+    pub  next: Option<*mut Slab>,    
 }
 
-struct ListNode {
-    next: Option<*mut ListNode>,
+pub struct ListNode {
+    pub next: Option<*mut ListNode>,
 }
 
 #[repr(C, align(16))]
-struct k_mem_cache_node {
+pub struct k_mem_cache_node {
     count: usize,
-    first: *mut Slab,
+    pub first: *mut Slab,
 }
 
 #[repr(C, align(16))]
 pub struct k_mem_cache {
-    object_size: u16, // in bytes
-    node: k_mem_cache_node,
+    pub object_size: u16, // in bytes
+    pub node: k_mem_cache_node,
 }
 
 impl k_mem_cache {
