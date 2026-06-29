@@ -1,9 +1,12 @@
 
 
+use core::fmt::Write;
+
 use crate::hal::{RAINBOW, RED};
 use crate::hal::framebuffer::{Framebuffer, Color};
-use crate::logger::LOGGER;
+use crate::logger::DISPLAY_WRITER_ID;
 use crate::logger::graphycal::bitmap_font::FONT_8X8;
+use crate::logger::logging::{SinkEntity, WriteSink};
 use crate::println;
 
 #[derive(Debug, Clone, Copy)]
@@ -189,3 +192,18 @@ impl DisplayWriter {
         }
     }
 }
+
+impl SinkEntity for DisplayWriter {
+    fn get_id(&self) -> usize {
+        DISPLAY_WRITER_ID
+    }
+}
+
+impl Write for DisplayWriter {
+    fn write_str(&mut self, s: &str) -> core::fmt::Result {
+        self.write_string(s);
+        Ok(())
+    }
+}
+
+impl WriteSink for DisplayWriter {}

@@ -1,14 +1,18 @@
-
+use alloc::boxed::Box;
 use spin::Mutex;
 use logging::Logger;
 
-use crate::logger::serial::writer::FALLBACK;
+use crate::logger::{logging::WriteSink, serial::writer::FALLBACK};
 pub mod graphycal;
 pub mod serial;
 pub mod ring_buffer;
 
 pub mod logging;
 
+#[allow(dead_code)]
+pub const DISPLAY_WRITER_ID:usize = 1;
+#[allow(dead_code)]
+pub const SERIAL_WRITER_ID:usize = 2;
 
 pub static LOGGER: Mutex<Logger> = Mutex::new(Logger::new());
 
@@ -17,6 +21,22 @@ macro_rules! panic_flush {
     () => {
         crate::logger::_panic_flush();
     };
+}
+
+
+#[macro_export]
+macro_rules! flush {
+    () => {{
+        $crate::logger::_flush();
+    }};
+}
+
+
+#[macro_export]
+macro_rules! flush_all {
+    () => {{
+        $crate::logger::_flush_all();
+    }};
 }
 
 #[macro_export]
@@ -49,6 +69,21 @@ pub fn _print(args: core::fmt::Arguments) {
 }
 
 #[doc(hidden)]
+pub fn _flush_all(){
+    let mut log = LOGGER.lock();
+
+    log.flush_all();
+}
+
+
+#[doc(hidden)]
+pub fn _flush(){
+    let mut log = LOGGER.lock();
+
+    log.flush();
+}
+
+#[doc(hidden)]
 pub fn _panic_flush(){
     
     FALLBACK.write_string("Panic flush: ");
@@ -75,3 +110,8 @@ pub fn _panic_flush(){
     }
 }
 
+pub fn add_sink(sink: Box<dyn WriteSink + Send+ Sync>) {
+    let mut logger = LOGGER.lock();
+
+    logger.init_sink(sink);
+}

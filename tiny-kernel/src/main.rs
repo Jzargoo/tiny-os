@@ -11,11 +11,10 @@ mod arch;
 
 use alloc::{boxed::Box, vec};
 use hal::bios_info::BiosInfo;
-use spin::Mutex;
 
 use core::main;
 
-use crate::{allocator::SlubAllocator, hal::{BLACK, GREEN, framebuffer::Framebuffer, page_allocator::{PageAllocator, PageSize}}, logger::graphycal::{bitmap_font::CELL_SIZE, writer::DisplayWriter}};
+use crate::{allocator::SlubAllocator, hal::{BLACK, GREEN, framebuffer::Framebuffer, page_allocator::{PageAllocator, PageSize}}, logger::{LOGGER, add_sink, graphycal::{bitmap_font::CELL_SIZE, writer::DisplayWriter}}};
 
 pub extern crate alloc;
 
@@ -39,41 +38,23 @@ pub fn panic(qi: &PanicInfo) -> ! {
 
 pub fn kernel_main(bi: &mut BiosInfo) {
 
+    init_memory(bi);
     
-    let mut dw = DisplayWriter::new(
+    let dw = Box::new(DisplayWriter::new(
         (&mut bi.framebuffer) as *mut Framebuffer,
         0,
         BLACK,
         GREEN, 
-        CELL_SIZE);
-
-    dw.write_string("Hello world!");
+        CELL_SIZE)
+    );
     
-    init_memory(bi);
-
-    let boxed = Box::new(1);
-
-    println!("boxed in the first time {}", boxed);
-
-    let mut vector = vec![1,2,4,5,6];
-
-    vector.push(12);
-
-    println!(" This is the vector! {:?}", vector);
-    
-    let pages = bi.page_allocator.kernel_allocate_pages(10, PageSize::REGULAR);
-    
-    pages.map(|p| {
-        println!("Allocated pages. Virt pages are {:?}", p);
-        bi.page_allocator.kernel_deallocate_pages(p);
-    }).unwrap_or_else(|| {
-        println!("Failed to allocate pages");
-    });
-    
+    add_sink(dw);
+    for _ in 0..10 {
+        LOGGER.lock().flush();
+    }
 
     main();
 
-    panic!("TEST PANIC!");
 }
 
 pub fn init_memory(bi: &mut BiosInfo) {

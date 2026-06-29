@@ -1,14 +1,14 @@
 use core::fmt::Write;
 
-use alloc::{boxed::Box, string::ToString, vec::Vec};
+use alloc::{boxed::Box, string::ToString, vec::{self, Vec}};
 
 use crate::logger::ring_buffer::RingBuffer;
 
-trait SinkEntity {
+pub trait SinkEntity {
     fn get_id(&self) -> usize;
 }
 
-trait WriteSink: Write + SinkEntity {}
+pub trait WriteSink: Write + SinkEntity {}
 
 pub struct  Logger {
     sinks: Option<
@@ -42,8 +42,15 @@ impl Logger {
     pub fn init_sink(&mut self, writer:Box<dyn WriteSink+ Send + Sync>) {
 
         if self.sinks.is_none()  {
+
+            let mut vector = Vec::new();
+
+            vector.push(writer);
+
+            self.sinks = Some(vector);
+
             return;
-        }
+        } 
 
         self.sinks
             .as_mut()
@@ -74,32 +81,21 @@ impl Logger {
         self.buffer.push_byte(char);
     }
 
-    fn pushln(&mut self, data: &'static str){
-        self.buffer.push(data);
-        self.buffer.push("\n\r");
-    }
-
-
     pub fn flush(&mut self) {
         if let Some(sinks) = self.sinks.as_ref() {
             if sinks.is_empty() {
                 return; 
             }
-        } 
+            
+            // if vec is initialized, the dynamic memory will be accessible at that point and thus we CAN use to_string
 
-        // if vec is initialized, the dynamic memory will be accessible at that point and thus we CAN use to_string
+            let mut buffer = [0u8;1000];
+            let string = self.buffer.popln(&mut buffer).unwrap_or("");
 
-        if let Some(line_string) = self.read().map(|s| s.to_string()) {
-
-            if let Some(sinks) = self.sinks.as_mut() {
-
-                for sink in sinks.iter_mut() {
-                    let _ = sink.write_str(&line_string);
-                }
-
+            for sink in self.sinks.as_mut().unwrap() {
+                let _ = sink.write_str(string);
             }
-
-        }
+        } 
     }
 
     pub fn flush_all(&mut self) {
@@ -107,21 +103,30 @@ impl Logger {
             if sinks.is_empty() {
                 return; 
             }
-        } 
 
-        // if vec is initialized, the dynamic memory will be accessible at that point and thus we CAN use to_string
+            // if vec is initialized, the dynamic memory will be accessible at that point and thus we CAN use to_string
+            
+            
+            loop {  
+                
+                let mut buffer = [0u8;1000];
+                
+                let string_curr= self.buffer.popln(&mut buffer);
 
-        while let Some(line_string) = self.read().map(|s| s.to_string()) {
-
-            if let Some(sinks) = self.sinks.as_mut() {
-
-                for sink in sinks.iter_mut() {
-                    let _ = sink.write_str(&line_string);
+                if let Some(string) = string_curr {
+                    
+                    for sink in self.sinks.as_mut().unwrap() {
+                        let _ = sink.write_str(string);
+                    }
+                    
+                } else {
+                    return;
                 }
-
-            }
-
-        }
+            } 
+            
+            
+            
+        } 
     }
 
 }

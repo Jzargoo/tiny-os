@@ -2,7 +2,7 @@ use core::{alloc::{GlobalAlloc, Layout}, ptr::null_mut, sync::atomic::{AtomicU8,
 
 use spin::Mutex;
 
-use crate::{allocator::kernel_memory::k_mem_cache, hal::page_allocator::PageAllocator};
+use crate::{allocator::kernel_memory::{ListNode, Slab, k_mem_cache}, hal::page_allocator::{PageAllocator, PageSize::{self, REGULAR}}};
 
 mod kernel_memory;
 
@@ -30,13 +30,7 @@ unsafe impl GlobalAlloc for SlubAllocator {
             
             let page_alloc_ptr = self.page_alloc.lock().expect("expected initiated page allocator");
 
-            let vp = unsafe { (*page_alloc_ptr).kernel_allocate_page(crate::hal::page_allocator::PageSize::REGULAR) };
-
-            if let Some(page) = vp {
-                cache.grow(page.start_addr as *mut u8, page.calc_bytes());
-            } else {
-                return null_mut(); // Alloc could not allocate a page, so out of space situation 
-            }
+            cache.change_active(page_alloc_ptr);
 
         } else if unsafe { (*cache.node.active).free_list_head.is_none() } {
             let page_alloc_ptr = self.page_alloc.lock().expect("expected initiated page allocator");
@@ -61,12 +55,25 @@ unsafe impl GlobalAlloc for SlubAllocator {
             Some(i) => i
         };
 
-        let cache = self.caches[level_cache].lock();
+        let mut cache = self.caches[level_cache].lock();
 
-        let slab = cache.node.first.
+        let slab_ptr = (ptr as usize & !(PageSize::bytes_from_page_size(REGULAR) - 1)) as *mut Slab;
 
-        
-        panic!("Deallocation was not implemented!")
+        let node_ptr = ptr as *mut ListNode;
+
+        unsafe { 
+            (*node_ptr).next = (*slab_ptr).free_list_head; 
+            (*slab_ptr).free_list_head = Some(node_ptr);
+        }
+
+        if unsafe {(*node_ptr).next.is_none()} {
+            
+            if !cache.node.partial_first.is_null() {
+                unsafe { (*slab_ptr).next = Some(cache.node.partial_first) }
+            }
+
+            cache.node.partial_first = slab_ptr;
+        }
     }
 }
 
