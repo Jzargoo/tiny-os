@@ -1,4 +1,4 @@
-use x86_64::{PhysAddr, VirtAddr, structures::paging::{FrameAllocator, FrameDeallocator, Mapper, OffsetPageTable, Page, PageTable, PageTableFlags, Size1GiB, Size2MiB, Size4KiB, mapper::MapperFlush}};
+use x86_64::{PhysAddr, VirtAddr, structures::paging::{FrameAllocator, FrameDeallocator, Mapper, OffsetPageTable, Page, PageTable, PageTableFlags, Size1GiB, Size2MiB, Size4KiB}};
 
 use crate::{hal::{buddy_mem_manager::BuddyManager, page_allocator::{PageAllocator, PageSize, VirtPages}}, println};
 

@@ -26,16 +26,12 @@ unsafe impl GlobalAlloc for SlubAllocator {
 
         let mut cache = self.caches[level_cache].lock();
         
-        if cache.node.active.is_null() {
+        if cache.node.active.is_null() || unsafe { (*cache.node.active).free_list_head.is_none() } {
             
             let page_alloc_ptr = self.page_alloc.lock().expect("expected initiated page allocator");
 
             cache.change_active(page_alloc_ptr);
 
-        } else if unsafe { (*cache.node.active).free_list_head.is_none() } {
-            let page_alloc_ptr = self.page_alloc.lock().expect("expected initiated page allocator");
-            
-            cache.change_active(page_alloc_ptr);
         }
 
         if let Some(head) = unsafe { (*cache.node.active).free_list_head } {

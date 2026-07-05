@@ -1,5 +1,3 @@
-use core::fmt::Write;
-
 use limine::{
     self, BaseRevision, RequestsEndMarker, RequestsStartMarker, memmap::{Entry, MEMMAP_USABLE}, request::{
         EntryPointRequest, FramebufferRequest, HhdmRequest, MemmapRequest, StackSizeRequest
@@ -7,9 +5,9 @@ use limine::{
 };
 
 use crate::{
-    arch::x86_64::page_allocator::PageAllocationMapper, hal::{    
+    arch::x86_64::{enable_cpu_interrupts, page_allocator::PageAllocationMapper}, hal::{    
         KERNEL_HEAP_SIZE, bios_info::BiosInfo, buddy_mem_manager::BuddyManager, framebuffer::Framebuffer, kernel_allocator::BumpAllocator
-    }, kernel_main, logger::LOGGER, println};
+    }, kernel_main, println};
 
 
     
@@ -60,29 +58,56 @@ static BASE_REVISION: BaseRevision = BaseRevision::new();
 pub static REQUESTS_END: RequestsEndMarker = RequestsEndMarker::new();
 
 
-
 #[unsafe(no_mangle)]
 pub  extern "C" fn _start() -> ! {
     
     println!("The kernel is starting!");
 
+    
+    // HHDM INITIALIZATION
     let virt_addr = hhdm_init().expect("The kernel MUST return offset");
+    
+    
+    
+    // INTERRUPTS INITIALIZATION
+    enable_cpu_interrupts();
+    
+    
+    x86_64::instructions::interrupts::int3();
+    
 
     #[cfg(debug_assertions)]
     println!("HHDM is {}", virt_addr);
     
+    
+    
+    // BUDDY INITIALIZATION
     let mut buddy_system  = BuddyManager::new();
+    
+    
     
     #[cfg(debug_assertions)]
     println!("Buddy manager is {:?}", buddy_system);
 
+    
+    
+    // MEMMAP INIT; FILL THE REGIONS INTO BUDDY; INITIALIZE kernel_alloc for buddy purposes
     let kernel_alloc = memmap_init(&mut buddy_system, virt_addr);
 
+
+
+    // PAGE MAPPER INITIALIZATION
     let mut page_allocator = PageAllocationMapper::new(virt_addr, buddy_system);
+
+
 
     #[cfg(debug_assertions)]
     println!("Page allocator is {:?}", page_allocator);
 
+    
+    
+    
+    // FRAMEBUFFER INITIALIZATION
     if let Some(fb) = framebuffer_init() &&  let Some(ka) = kernel_alloc  {
         println!("The framebuffer was initilized");
 
@@ -94,9 +119,12 @@ pub  extern "C" fn _start() -> ! {
         #[cfg(debug_assertions)]
         println!("Bump allocator is {:?}", ka);
  
+
+        // COLLECT ALL INFORMATION INO BIOS INFO STRUCTURE 
         let mut bi = BiosInfo::new(fb,  ka, & mut page_allocator);
  
 
+        // INVOKE MAIN KERNEL FUNCTION
         kernel_main(&mut bi);        
     
     } else {

@@ -1,20 +1,20 @@
 #![no_std]
 #![no_main]
+#![feature(abi_x86_interrupt)]
 
 use ::core::{mem, panic::PanicInfo};
-mod boot;
 mod core;
 mod logger;
 mod allocator;
 mod hal;
 mod arch;
 
-use alloc::{boxed::Box, vec};
+use alloc::{boxed::Box};
 use hal::bios_info::BiosInfo;
 
 use core::main;
 
-use crate::{allocator::SlubAllocator, hal::{BLACK, GREEN, framebuffer::Framebuffer, page_allocator::{PageAllocator, PageSize}}, logger::{LOGGER, add_sink, graphycal::{bitmap_font::CELL_SIZE, writer::DisplayWriter}}};
+use crate::{allocator::SlubAllocator, hal::{BLACK, GREEN, framebuffer::Framebuffer, page_allocator::{PageAllocator}}, logger::{LOGGER, add_sink, graphycal::{bitmap_font::CELL_SIZE, writer::DisplayWriter}}};
 
 pub extern crate alloc;
 
@@ -47,14 +47,9 @@ pub fn kernel_main(bi: &mut BiosInfo) {
         GREEN, 
         CELL_SIZE)
     );
-    
-    add_sink(dw);
-    for _ in 0..10 {
-        LOGGER.lock().flush();
-    }
 
     main();
-
+    panic!("[TEST PANIC]")
 }
 
 pub fn init_memory(bi: &mut BiosInfo) {
