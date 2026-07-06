@@ -6,6 +6,10 @@ use x86_64::{VirtAddr, instructions::tables::load_tss, registers::segmentation::
 #[unsafe(no_mangle)]
 static KERNEL_STACK: [u8; 16*1024] = [0u8; 16 * 1024];
 
+#[unsafe(link_section = ".bss")]
+#[unsafe(no_mangle)]
+static KERNEL_STACK_IST: [u8; 8*1024] = [0u8; 8 * 1024];
+
 struct Selectors {
     kc_selector: SegmentSelector,
     kd_selector: SegmentSelector,
@@ -30,7 +34,14 @@ pub fn setup_gdt() {
     
         let mut tss = TaskStateSegment::new();
     
+        let ist_kernel_start = VirtAddr::new(KERNEL_STACK_IST.as_ptr() as u64);
+    
+        let ist_kernel_end = ist_kernel_start + KERNEL_STACK_IST.len() as u64;
+        
+
         tss.privilege_stack_table[0] = kernel_end;
+
+        tss.interrupt_stack_table[1] = ist_kernel_end;
     
         tss
     });

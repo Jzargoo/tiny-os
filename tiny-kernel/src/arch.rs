@@ -15,3 +15,5 @@ pub mod pages {
     pub const PAGE_SIZE_LARGE: usize = 1024 * 1024 * 2; // 2 mib
     pub const PAGE_SIZE_HUGE: usize = 1024 * 1024 * 1024;  // 1 gib
 }
+
+pub mod interrupt_structures;

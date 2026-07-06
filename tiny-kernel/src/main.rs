@@ -2,7 +2,7 @@
 #![no_main]
 #![feature(abi_x86_interrupt)]
 
-use ::core::{mem, panic::PanicInfo};
+use ::core::{arch::asm, mem, panic::PanicInfo};
 mod core;
 mod logger;
 mod allocator;
@@ -49,7 +49,8 @@ pub fn kernel_main(bi: &mut BiosInfo) {
     );
 
     main();
-    panic!("[TEST PANIC]")
+
+    
 }
 
 pub fn init_memory(bi: &mut BiosInfo) {
@@ -61,5 +62,17 @@ pub fn init_memory(bi: &mut BiosInfo) {
     unsafe {
         let static_dyn_ptr: *mut (dyn PageAllocator + 'static) = mem::transmute(raw_dyn_ptr);
         ALLOCATOR.set_page_allocator(static_dyn_ptr);
+    }
+}
+
+pub fn trigger_div_zero() {
+    let divisor: u64 = 0;
+    unsafe {
+        asm!(
+            "div {0}",
+            in(reg) divisor,
+            inout("rax") 5_u64 => _,
+            inout("rdx") 0_u64 => _,
+        );
     }
 }
