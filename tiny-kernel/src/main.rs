@@ -2,21 +2,22 @@
 #![no_main]
 #![feature(abi_x86_interrupt)]
 
-use ::core::{arch::asm, mem, panic::PanicInfo};
+use ::core::{mem, panic::PanicInfo};
 mod core;
 mod logger;
 mod allocator;
 mod hal;
 mod arch;
 
-use alloc::{boxed::Box};
+use alloc::{boxed::Box, vec::Vec};
 use hal::bios_info::BiosInfo;
 
 use core::main;
 
-use crate::{allocator::SlubAllocator, hal::{BLACK, GREEN, framebuffer::Framebuffer, page_allocator::{PageAllocator}}, logger::{LOGGER, add_sink, graphycal::{bitmap_font::CELL_SIZE, writer::DisplayWriter}}};
+use crate::{allocator::SlubAllocator, arch::{devices::{init_configuration, is_device_exist, is_milti_func}, x86_64::boot::limine::hlt_loop}, hal::{BLACK, GREEN, framebuffer::Framebuffer, page_allocator::PageAllocator, pci_device::PciDevice}, logger::{LOGGER, add_sink, graphycal::{bitmap_font::CELL_SIZE, writer::DisplayWriter}}};
 
 pub extern crate alloc;
+
 
 
 #[global_allocator]
@@ -33,14 +34,14 @@ pub fn panic(qi: &PanicInfo) -> ! {
 
     panic_flush!();
     
-    loop {}
+    hlt_loop()
 }
 
 pub fn kernel_main(bi: &mut BiosInfo) {
 
     init_memory(bi);
     
-    let dw = Box::new(DisplayWriter::new(
+    let mut dw = Box::new(DisplayWriter::new(
         (&mut bi.framebuffer) as *mut Framebuffer,
         0,
         BLACK,
@@ -48,8 +49,18 @@ pub fn kernel_main(bi: &mut BiosInfo) {
         CELL_SIZE)
     );
 
+    dw.write_string("string\n");
+
+
+    let devices = scan_pci();
+    
+    dw.write_string("string again");    
+
     main();
 
+    println!("{:?}", devices);
+    
+    panic!("Test panic!");
     
 }
 
@@ -65,14 +76,33 @@ pub fn init_memory(bi: &mut BiosInfo) {
     }
 }
 
-pub fn trigger_div_zero() {
-    let divisor: u64 = 0;
-    unsafe {
-        asm!(
-            "div {0}",
-            in(reg) divisor,
-            inout("rax") 5_u64 => _,
-            inout("rdx") 0_u64 => _,
-        );
+pub fn scan_pci() -> Vec<PciDevice> {
+    let mut devices = Vec::new();
+
+    for bus in 0..=10 {
+        
+        for slot in 0..32{  
+    
+            if !is_device_exist(bus, slot, 0) {
+                continue;
+            } else if !is_milti_func(bus, slot) {
+                devices.push(
+                    init_configuration(bus, slot, 0)
+                ); 
+                continue;
+            }
+
+            for func in 0..7 {
+                if is_device_exist(bus, slot, func) {
+                    devices.push(
+                        init_configuration(bus, slot, func)
+                    );
+                }
+            }
+    
+        }
+
     }
+
+    devices
 }

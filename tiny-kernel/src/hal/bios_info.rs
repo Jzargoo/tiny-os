@@ -4,7 +4,7 @@ use crate::hal::{framebuffer::Framebuffer, kernel_allocator::BumpAllocator, page
 pub struct BiosInfo<'a> {
     pub framebuffer: Framebuffer,
     pub page_allocator: &'a mut dyn PageAllocator,
-    pub kernel_alloc: BumpAllocator,
+    pub kernel_alloc: BumpAllocator
 }
 
 impl <'a> BiosInfo<'a> {

@@ -8,7 +8,9 @@ static IDT: Once<InterruptDescriptorTable> = Once::new();
 
 macro_rules! threw_exception {
     ($frame:expr) => {
+        $crate::logger
         println!("[Generic Interrupter] Fatal error at {:?}", $frame)
+        
         panic!("PANIC FROM GENERIC EXCEPTION INTERRUPTER")
     };
 
@@ -32,11 +34,14 @@ macro_rules! threw_exception_code {
 }
 
 
-pub fn setup_idt() {
+pub(in crate::arch::x86_64::interrupts) fn setup_idt() {
     let idt = IDT.call_once(|| {
         let mut idt = InterruptDescriptorTable::new();
     
         idt.breakpoint.set_handler_fn(breakpoint_fn);
+
+        idt.divide_error
+            .set_handler_fn(division_error_fn);
         
         idt.bound_range_exceeded
             .set_handler_fn(bound_range_exceeded_fn);
@@ -83,6 +88,10 @@ pub fn setup_idt() {
 
 extern "x86-interrupt" fn breakpoint_fn(frame: InterruptStackFrame) {
     println!("[BREAKPOINT INTERRUPTER] interrupt frame is {:?}. This function was invoked by a CPU not directly!", frame)
+}
+
+extern "x86-interrupt" fn division_error_fn(frame: InterruptStackFrame) {
+    threw_exception!(frame, "DIVISION ERROR INTERRUPTER", "there was a division error(probably division by zero)");
 }
 
 extern "x86-interrupt" fn overflow_fn(frame: InterruptStackFrame) {

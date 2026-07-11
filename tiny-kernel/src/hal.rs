@@ -8,6 +8,8 @@ pub mod bios_info;
 
 pub mod page_allocator;
 
+pub mod pci_device;
+
 pub const KERNEL_HEAP_SIZE: usize = 1024 * 1024 * 4; // 2MB
 
 use framebuffer::Color;
