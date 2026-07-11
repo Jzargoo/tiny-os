@@ -1,11 +1,11 @@
 use limine::{
     self, BaseRevision, RequestsEndMarker, RequestsStartMarker, memmap::{Entry, MEMMAP_USABLE}, request::{
-        EntryPointRequest, FramebufferRequest, HhdmRequest, MemmapRequest, StackSizeRequest
+        BootloaderInfoRequest, EntryPointRequest, FirmwareTypeRequest, FramebufferRequest, HhdmRequest, MemmapRequest, SmbiosRequest, StackSizeRequest
     }
 };
 
 use crate::{
-    arch::x86_64::{enable_cpu_interrupts, page_allocator::PageAllocationMapper}, hal::{    
+    arch::x86_64::{interrupts::enable_cpu_interrupts, page_allocator::PageAllocationMapper}, hal::{    
         KERNEL_HEAP_SIZE, bios_info::BiosInfo, buddy_mem_manager::BuddyManager, framebuffer::Framebuffer, kernel_allocator::BumpAllocator
     }, kernel_main, println};
 
@@ -132,7 +132,7 @@ pub  extern "C" fn _start() -> ! {
         panic!();
     } 
 
-    loop {}
+    hlt_loop()
 }
 
 
@@ -231,3 +231,10 @@ fn init_kernel_alloc(entries: &[&Entry], offset: u64) -> Option<BumpAllocator> {
     }
     None
 }
+
+pub fn hlt_loop() -> ! {
+    loop {
+        x86_64::instructions::hlt();
+    }
+}
+

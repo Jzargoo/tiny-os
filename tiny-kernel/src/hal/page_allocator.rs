@@ -15,7 +15,7 @@ pub struct KernelMemRegion {
 
 #[derive(Debug)]
 pub struct VirtPages{
-    pub page_count: u8,
+    pub page_count: usize,
     pub page_size: PageSize,
     pub start_addr: u64
 }
@@ -31,7 +31,7 @@ impl PageSize {
 }
 
 impl VirtPages {
-    pub fn new(page_count: u8, page_size: PageSize, start_addr: u64) -> Self{
+    pub fn new(page_count: usize, page_size: PageSize, start_addr: u64) -> Self{
         Self {
             page_count,
             page_size,
@@ -44,7 +44,7 @@ impl VirtPages {
         let bpp = PageSize::bytes_from_page_size(page_size);
 
         Self {
-            page_count: (bytes - 1 / bpp) as u8 + 1u8,
+            page_count: (bytes - 1 / bpp) as usize + 1usize,
             page_size,
             start_addr 
         }
@@ -65,7 +65,7 @@ impl KernelMemRegion {
 }
 
 pub trait PageAllocator {
-    fn allocate_pages(&mut self, count: u8, pg: PageSize) -> Option<VirtPages>;
+    fn allocate_pages(&mut self, count: usize, pg: PageSize) -> Option<VirtPages>;
 
     fn deallocate_pages(&mut self, pages: VirtPages);
     
@@ -75,7 +75,7 @@ pub trait PageAllocator {
         self.allocate_pages(1, pg)
     }
 
-    fn kernel_allocate_pages(&mut self, count: u8, pg: PageSize) -> Option<VirtPages>;
+    fn kernel_allocate_pages(&mut self, count: usize, pg: PageSize) -> Option<VirtPages>;
 
     fn kernel_allocate_page(&mut self, pg: PageSize) -> Option<VirtPages> {
         self.kernel_allocate_pages(1, pg)

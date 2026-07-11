@@ -1,8 +1,8 @@
-use core::{alloc::{GlobalAlloc, Layout}, ptr::null_mut, sync::atomic::{AtomicU8, Ordering::Relaxed}};
+use core::{alloc::{GlobalAlloc, Layout}, ptr::{null_mut, read}, sync::atomic::{AtomicU8, Ordering::Relaxed}};
 
 use spin::Mutex;
 
-use crate::{allocator::kernel_memory::{ListNode, Slab, k_mem_cache}, hal::page_allocator::{PageAllocator, PageSize::{self, REGULAR}}};
+use crate::{allocator::kernel_memory::{ListNode, Slab, k_mem_cache}, hal::page_allocator::{PageAllocator, PageSize::{self, REGULAR}, VirtPages}};
 
 mod kernel_memory;
 
@@ -21,7 +21,7 @@ unsafe impl GlobalAlloc for SlubAllocator {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         let level_cache = match self.evaluate_level_cache(layout.size())  {
             Some(x) => x,
-            None => return null_mut()
+            None => return self.alloc_from_mapper(layout.size())
         };
 
         let mut cache = self.caches[level_cache].lock();
@@ -47,7 +47,10 @@ unsafe impl GlobalAlloc for SlubAllocator {
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
 
         let level_cache = match self.evaluate_level_cache(layout.size()) {
-            None => return,
+            None => {
+                self.dealloc_from_mapper(layout.size(), ptr as u64);
+                return;
+            },
             Some(i) => i
         };
 
@@ -139,6 +142,54 @@ impl SlubAllocator {
             start_obj_size: AtomicU8::new(8)
         }
 
+    }
+
+    pub fn alloc_from_mapper(&self, size: usize) -> *mut u8 {
+        let page_alloc = self.page_alloc.lock();
+
+        if size >= 2 * 1024 * 1024 {
+            panic!("Requested size more than buddy root, we cannot allocate annon_map( YET!!!! )")
+        }
+
+        if page_alloc.is_some() {
+            let mapper = page_alloc.expect("The page allocator was expected to be");
+            
+            let page_bytes = PageSize::bytes_from_page_size(REGULAR);
+            
+            let pages = (size + page_bytes - 1) / page_bytes;
+
+            let res = unsafe { 
+                (*mapper).allocate_pages(pages, REGULAR) 
+            };
+
+            if let Some(vp) = res {
+                return  vp.start_addr as *mut u8
+            }
+        }
+
+        null_mut()
+    }
+
+    fn dealloc_from_mapper(&self, size: usize, start_addr: u64) {
+        let page_alloc = self.page_alloc.lock();
+
+        if size >= 2 * 1024 * 1024 {
+            panic!("Requested size more than buddy root, we cannot dellocate annon_map( YET!!!! )")
+        }
+
+        if page_alloc.is_some() {
+            let mapper = page_alloc.expect("The page allocator was expected to be");
+            
+            let page_bytes = PageSize::bytes_from_page_size(REGULAR);
+            
+            let pages = (size + page_bytes - 1) / page_bytes;
+
+            let vp = VirtPages::new(pages, REGULAR, start_addr);
+            
+            unsafe { 
+                (*mapper).deallocate_pages(vp) 
+            };
+        }
     }
 
     pub fn set_page_allocator(&self, alloc: *mut dyn PageAllocator){

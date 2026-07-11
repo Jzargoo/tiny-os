@@ -58,7 +58,7 @@ fn free_pages_of_type<S,T>(mapper:&mut T, pages: VirtPages)
 }
 
 impl PageAllocationMapper {
-    fn add_into_page_table(&mut self, pstart_addr: u64, vstart_addr: u64, page_size: PageSize, count: u8){
+    fn add_into_page_table(&mut self, pstart_addr: u64, vstart_addr: u64, page_size: PageSize, count: usize){
 
 
         let vaddr = VirtAddr::new(vstart_addr);
@@ -157,7 +157,7 @@ impl <T: x86_64::structures::paging::PageSize> FrameDeallocator<T> for &mut Budd
 
 impl PageAllocator for PageAllocationMapper {
 
-    fn allocate_pages(&mut self, count: u8, pg: PageSize) 
+    fn allocate_pages(&mut self, count: usize, pg: PageSize) 
         -> Option<VirtPages> {
 
         if let Some(frame) = 
@@ -206,10 +206,10 @@ impl PageAllocator for PageAllocationMapper {
 
     }
     
-    fn kernel_allocate_pages(&mut self, count: u8, pg: PageSize) -> Option<VirtPages> {
+    fn kernel_allocate_pages(&mut self, count: usize, pg: PageSize) -> Option<VirtPages> {
         
         if let Some(frame) = 
-            self.buddy_manager.allocate_bytes(count as usize * PageSize::bytes_from_page_size(pg)
+            self.buddy_manager.allocate_bytes(count * PageSize::bytes_from_page_size(pg)
         ) {
             
             // There is not sense in page allocation for page table in kernel because it has been already allocated 
