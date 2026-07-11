@@ -107,10 +107,13 @@ impl BuddyRoot {
 
         } 
 
-        let gen_index = frame_offset as usize / 1 << (self.order - generation);
-
+        let gen_index = frame_offset as usize / (1 << (self.order - generation));
+        
+        #[cfg(debug_assertions)]
+        println!("[BUDDY] gen index is: {}", gen_index);
+            
         BuddyRoot::recursive_freeing_nodes(bitmap, gen_index, generation);
-    
+        
         Ok(())
         
     } 
@@ -118,6 +121,9 @@ impl BuddyRoot {
     fn recursive_freeing_nodes(bitmap: &mut[bool], generation_index: usize, generation: u8) {
 
         let bitmap_index = BuddyRoot::get_index_by_generation_index(generation_index, generation);
+        
+        #[cfg(debug_assertions)]
+        println!("[BUDDY] bitmap index is: {} for gen index {} and gen {}", bitmap_index, generation_index, generation);
         
         if generation == 0 {
 
@@ -128,29 +134,35 @@ impl BuddyRoot {
             return;
         }
 
-        let buddy = if generation_index % 2 == 0 {
-            bitmap_index + 1
+        bitmap[bitmap_index] = false;
+        
+        let buddy_generation_index = if generation_index % 2 == 0 {
+            generation_index + 1
         } else {
-            bitmap_index - 1
+            generation_index - 1
         };
 
+        let buddy_bitmap_index = BuddyRoot::get_index_by_generation_index(buddy_generation_index, generation);
 
-        bitmap[bitmap_index] = false;
-
-        if bitmap[buddy] {
+        if bitmap[buddy_bitmap_index] {
             #[cfg(debug_assertions)]
-            println!("[BUDDY] buddy with index {} is busy", buddy);
+            println!("[BUDDY] buddy with index {} is busy", buddy_bitmap_index);
 
             return;
         } else {
             let parent_index = generation_index / 2;
-            BuddyRoot::recursive_freeing_nodes(bitmap, parent_index, generation -1);
+            BuddyRoot::recursive_freeing_nodes(bitmap, parent_index, generation - 1);
         }
     }
 
-    fn get_index_by_generation_index(gener_index:usize, generation: u8) -> usize{
-        gener_index * generation as usize    
+    fn get_index_by_generation_index(gener_index: usize, generation: u8) -> usize{
+        let generation_start_offset = (1 << generation) - 1;
+    
+        generation_start_offset + gener_index
     }
+
+    //  0
+    // 1 2 -- [1,2]  
 }
 
 #[allow(dead_code)]
@@ -225,6 +237,9 @@ impl BuddyManager {
 
         let mut current = self.buddy_root;
 
+        #[cfg(debug_assertions)]
+        println!("[BUDDY] Requested to deallocate a block with start {} and size {}.", frame_start, frame_size_bytes);
+
         while let Some(node_ptr) = current {
             
                 let root = unsafe {
@@ -239,6 +254,17 @@ impl BuddyManager {
                 root.free(root.order  - order, frame_start)?;
             } else {
                 current = root.next
+                // 0 - 2mb
+                // 1 - 1mb
+                // 2 - 512kb
+                // 3 - 256kb
+                // 4 - 128kb
+                // 5 - 64kb
+                // 6 - 32kb
+                // 7 - 16kb
+                // 8 - 8kb
+                // 9 - 4kb
+                
             }
         }
 
