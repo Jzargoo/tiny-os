@@ -1,11 +1,11 @@
 use limine::{
     self, BaseRevision, RequestsEndMarker, RequestsStartMarker, memmap::{Entry, MEMMAP_USABLE}, request::{
-        BootloaderInfoRequest, EntryPointRequest, FirmwareTypeRequest, FramebufferRequest, HhdmRequest, MemmapRequest, SmbiosRequest, StackSizeRequest
+        BootloaderInfoRequest, EntryPointRequest, FirmwareTypeRequest, FramebufferRequest, HhdmRequest, MemmapRequest, RsdpRequest, SmbiosRequest, StackSizeRequest
     }
 };
 
 use crate::{
-    arch::x86_64::{interrupts::enable_cpu_interrupts, page_allocator::PageAllocationMapper}, hal::{    
+    acpi::{rsdp::{Rsdp, RsdpCommon}, xsdt::Xsdt}, arch::x86_64::{interrupts::enable_cpu_interrupts, page_allocator::PageAllocationMapper}, hal::{    
         KERNEL_HEAP_SIZE, bios_info::BiosInfo, buddy_mem_manager::BuddyManager, framebuffer::Framebuffer, kernel_allocator::BumpAllocator
     }, kernel_main, println};
 
@@ -15,6 +15,14 @@ use crate::{
 #[used]
 #[unsafe(link_section = ".requests_start")]
 pub static REQUESTS_START: RequestsStartMarker = RequestsStartMarker::new();
+
+
+
+#[unsafe(no_mangle)]
+#[used]
+#[unsafe(link_section = ".requests")]
+pub static REQUESTS_RSDP: RsdpRequest = RsdpRequest::new();
+
 
 
 
@@ -62,11 +70,20 @@ pub static REQUESTS_END: RequestsEndMarker = RequestsEndMarker::new();
 pub  extern "C" fn _start() -> ! {
     
     println!("The kernel is starting!");
-
+    panic!("TESTs");
     
     // HHDM INITIALIZATION
     let virt_addr = hhdm_init().expect("The kernel MUST return offset");
     
+
+
+    // RSDP
+    let rsdp = rsdp(
+        REQUESTS_RSDP.response().expect("The kernel MUST have rsdp").address as u64
+    );
+
+    #[cfg(debug_assertions)]
+    println!("RSDP is {:?}", rsdp);
     
     
     // INTERRUPTS INITIALIZATION
@@ -238,3 +255,28 @@ pub fn hlt_loop() -> ! {
     }
 }
 
+fn rsdp(address: u64) -> *const Rsdp {
+    let pointer = address as *const RsdpCommon;
+
+    if unsafe { (*pointer).revision } >= 2 {
+        if !is_rsdp_valid(address as *const u8, 36) {
+            panic!("Rsdp is incorrect! Checksum is wrong");
+        }
+        
+        address as *const Rsdp       
+    } else {
+        panic!("We do not support rsdp of the first revision that it provided primarily for 32bit system.")
+    }
+}
+
+// 36 bits for v2+
+// 20 bits for v1,0
+pub fn is_rsdp_valid(ptr: *const u8, len: usize) -> bool {
+    let mut sum: u8 = 0;
+    for i in 0..len {
+        unsafe {
+            sum = sum.wrapping_add(*ptr.add(i));
+        }
+    }
+    sum == 0
+}
