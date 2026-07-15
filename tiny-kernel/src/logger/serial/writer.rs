@@ -2,7 +2,7 @@ use core::{arch::asm, fmt::Write};
 
 use lazy_static::lazy_static;
 
-const COM_PORT: u16 = 0x3F8;
+const COM_PORT: u16 = 0x2F8;
 
 lazy_static!{
     pub static ref FALLBACK: SerialWriter = {
@@ -42,6 +42,10 @@ fn inb(com_port: u16) -> u8 {
 
 pub fn initialization(port: u16) -> Option<()>{
     
+    while (inb(port + 5) & 1) != 0 {
+        inb(port + 0); 
+    }
+
     outb(port + 2, 0x00); //Disable all interruptions
 
     outb(port + 3, 0x80); // Enable DAHL

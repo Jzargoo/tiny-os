@@ -14,9 +14,31 @@ pub struct PciDevice {
     revision: u8,
     prog_if: u8,
     bist: u8,
-    header_type: u8,
+    header_type: PciHeaderType,
     timer: u8,
     cache_line_size: u8,
+}
+
+pub enum PciHeaderType {
+    NORMAL(NormalDevice),
+    BRIDGE(BridgeDevice),
+    UNKNOWN
+}
+
+pub struct NormalDevice {
+    pub bars: [Option<Bar>; 6],
+    pub sub_system_id: u32,
+    pub sub_system_vendor_id: u32,
+    pub exp_rom_base_address: u32,
+    pub cap_pointer: u8
+}
+
+pub struct BridgeDevice {
+    pub bars: [Option<Bar>; 2]
+}
+pub struct Bar {
+    pub address: u64, 
+    pub is_port: bool
 }
 
 impl PciDevice {
@@ -33,7 +55,7 @@ impl PciDevice {
         revision: u8,
         prog_if: u8,
         bist: u8,
-        header_type: u8,
+        header_type: PciHeaderType,
         timer: u8,
         cache_line_size: u8
     ) -> Self {
@@ -57,5 +79,15 @@ impl PciDevice {
 impl Debug for PciDevice {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("PciDevice").field("vendor_id", &self.vendor_id).field("device_id", &self.device_id).finish()
+    }
+}
+
+impl PciDevice {
+    pub fn is_enabled(&self) -> bool {
+        ((self.command >> 10) & 0x1) == 1
+    } 
+
+    pub fn support_capabilities(&self) -> bool {
+        ((self.status >> 4) & 0x1) == 1
     }
 }
