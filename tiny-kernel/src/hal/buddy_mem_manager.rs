@@ -177,9 +177,10 @@ impl BuddyManager {
     pub fn add_region(&mut self, start_addr: *mut u8, mut size: usize, kernel_alloc: &mut BumpAllocator) {
         let mut curr_addr = start_addr;
 
-        println!("[BUDDY] Adding memory region: base={:p}, size={} bytes", start_addr, size);
+        //println!("[BUDDY] Adding memory region: base={:p}, size={} bytes", start_addr, size);
 
         while size != 0 {
+            
             let mut order = size.ilog2() as u8;
             
             if order < MIN_ORDER {
@@ -223,7 +224,7 @@ impl BuddyManager {
             self.buddy_root = Some(root_ptr);
             let block_size = 1usize << (order as usize);
 
-            println!("[BUDDY]   Created Root Node: base=0x{:x}, order={}, elements={}", curr_addr as usize, order, bitmap_len);
+       //     println!("[BUDDY]   Created Root Node: base=0x{:x}, order={}, elements={}", curr_addr as usize, order, bitmap_len);
 
             curr_addr = unsafe { curr_addr.add(block_size) };
 

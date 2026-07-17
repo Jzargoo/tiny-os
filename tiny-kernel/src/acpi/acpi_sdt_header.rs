@@ -1,13 +1,14 @@
 
 #[repr(C, packed)]
+#[derive(Clone, Copy, Debug)]
 pub struct AcpiSdtHeader{
-    signature: [char; 4],
-    len: u32,
-    revision: u8,
-    checksum: u8,
-    oemid: [char; 8],
-    oem_table_id: [char; 6],
-    oem_revision: u32,
-    creator_id: u32,
-    creator_revision: u32
+    pub signature: [u8; 4],
+    pub len: u32,
+    pub revision: u8,
+    pub checksum: u8,
+    pub oemid: [char; 8],
+    pub oem_table_id: [char; 6],
+    pub oem_revision: u32,
+    pub creator_id: u32,
+    pub creator_revision: u32
 }

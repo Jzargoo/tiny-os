@@ -2,7 +2,7 @@
 #![no_main]
 #![feature(abi_x86_interrupt)]
 
-use ::core::{mem, panic::PanicInfo};
+use ::core::{fmt::Write, mem, panic::PanicInfo};
 mod core;
 mod acpi;
 mod logger;
@@ -15,7 +15,7 @@ use hal::bios_info::BiosInfo;
 
 use core::main;
 
-use crate::{allocator::SlubAllocator, arch::{x86_64::boot::limine::hlt_loop}, hal::{BLACK, GREEN, framebuffer::Framebuffer, page_allocator::PageAllocator}, logger::{graphycal::{bitmap_font::CELL_SIZE, writer::DisplayWriter}}};
+use crate::{acpi::xsdt::Tables, allocator::SlubAllocator, arch::x86_64::boot::limine::hlt_loop, hal::{BLACK, GREEN, framebuffer::Framebuffer, page_allocator::PageAllocator}, logger::graphycal::{bitmap_font::CELL_SIZE, writer::DisplayWriter}};
 
 pub extern crate alloc;
 
@@ -54,6 +54,13 @@ pub fn kernel_main(bi: &mut BiosInfo) {
 
 
     dw.write_string("string again");    
+
+
+    println!(
+        "Xsdt has headers {:?}", 
+        bi.xsdt.read_self_headers()
+    );
+   
 
     main();
    

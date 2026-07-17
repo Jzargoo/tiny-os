@@ -5,7 +5,7 @@ use limine::{
 };
 
 use crate::{
-    acpi::{rsdp::{Rsdp, RsdpCommon}, xsdt::Xsdt}, arch::x86_64::{interrupts::enable_cpu_interrupts, page_allocator::PageAllocationMapper}, hal::{    
+    acpi::{rsdp::{Rsdp, RsdpCommon}, xsdt::{Xsdt, XsdtInternals}}, arch::x86_64::{interrupts::enable_cpu_interrupts, page_allocator::PageAllocationMapper}, hal::{    
         KERNEL_HEAP_SIZE, bios_info::BiosInfo, buddy_mem_manager::BuddyManager, framebuffer::Framebuffer, kernel_allocator::BumpAllocator
     }, kernel_main, println};
 
@@ -70,8 +70,7 @@ pub static REQUESTS_END: RequestsEndMarker = RequestsEndMarker::new();
 pub  extern "C" fn _start() -> ! {
     
     println!("The kernel is starting!");
-    panic!("TESTs");
-    
+
     // HHDM INITIALIZATION
     let virt_addr = hhdm_init().expect("The kernel MUST return offset");
     
@@ -82,8 +81,18 @@ pub  extern "C" fn _start() -> ! {
         REQUESTS_RSDP.response().expect("The kernel MUST have rsdp").address as u64
     );
 
-    #[cfg(debug_assertions)]
-    println!("RSDP is {:?}", rsdp);
+    unsafe {
+        #[cfg(debug_assertions)]
+        println!("RSDP is {:?}", (*rsdp) );
+    }
+
+    let xsdt = unsafe { 
+        
+            ((*rsdp).xsdt_address + virt_addr) 
+                as *const XsdtInternals
+        
+    }; 
+
     
     
     // INTERRUPTS INITIALIZATION
@@ -138,7 +147,15 @@ pub  extern "C" fn _start() -> ! {
  
 
         // COLLECT ALL INFORMATION INO BIOS INFO STRUCTURE 
-        let mut bi = BiosInfo::new(fb,  ka, & mut page_allocator);
+        let mut bi = BiosInfo::new(
+            fb,
+            ka,
+            & mut page_allocator,
+            Xsdt {
+                hh_mem: virt_addr,
+                xsdt_internals: xsdt
+            }
+        );
  
 
         // INVOKE MAIN KERNEL FUNCTION
@@ -260,9 +277,9 @@ fn rsdp(address: u64) -> *const Rsdp {
 
     if unsafe { (*pointer).revision } >= 2 {
         if !is_rsdp_valid(address as *const u8, 36) {
+            
             panic!("Rsdp is incorrect! Checksum is wrong");
         }
-        
         address as *const Rsdp       
     } else {
         panic!("We do not support rsdp of the first revision that it provided primarily for 32bit system.")
