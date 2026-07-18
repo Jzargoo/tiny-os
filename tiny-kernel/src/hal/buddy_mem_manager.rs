@@ -7,6 +7,9 @@ use crate::println;
 const MIN_ORDER: u8 = 12; // 4KB 
 const MAX_ORDER: u8 = 21; // 2MB 
 
+//TODO : REFACTOR THE ENTIRE ALLOCATOR TO SUPPORT MY ADDRESS TRAITS
+
+
 #[allow(dead_code)]
 struct BuddyRoot {
     next: Option<*mut BuddyRoot>,

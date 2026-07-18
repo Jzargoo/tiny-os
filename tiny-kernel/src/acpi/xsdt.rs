@@ -1,98 +1,44 @@
-use core::ptr::read_unaligned;
+use core::marker::PhantomData;
+use core::slice::from_raw_parts;
 
 use crate::acpi::acpi_sdt_header::AcpiSdtHeader;
-#[cfg(debug_assertions)]
-use crate::println;
+use crate::acpi::xsdt_iter::{RxsdtToIter, XsdtIter};
+use crate::hal::addresses::PhysicalAddress;
+
 
 #[repr(C, packed)]
 #[derive(Clone, Copy)]
-
-pub struct XsdtInternals{
-    pub acpi_sdt_header: AcpiSdtHeader,
-    pub other_tables_addres: u64
+pub struct Xsdt<P: PhysicalAddress>{
+    pub sdt: &'static AcpiSdtHeader,
+    hh_mem: u64,
+    _phantom: PhantomData<P>
 }
 
-pub struct Xsdt{
-    pub xsdt_internals: *const XsdtInternals,
-    pub hh_mem: u64
-}
-
-impl Xsdt {
-
-
-    pub unsafe fn entries(&self) -> usize {
-        let len = unsafe{ 
-            (
-                read_unaligned(self.xsdt_internals)
-            )
-                .acpi_sdt_header.len as usize
-        };
-
-        (len - 36usize) / 8usize
+impl<P: PhysicalAddress> Xsdt<P> {
+    pub fn new (sdt: &'static AcpiSdtHeader, hh_mem: u64) -> Self{
+        Xsdt::<P>{
+            sdt, hh_mem,
+            _phantom: PhantomData
+        }
     }
 
-
-    pub unsafe fn get_entry(&self, req_table: Tables) -> Option<AcpiSdtHeader> {
-        let count = unsafe { self.entries() };
-
-        for i in 0..count {
-            let entry = unsafe { self.get_entry_by_index(i) };
-
-            if entry.signature.eq(&req_table.get_signature()) {
-                return Some(entry);
-            }
-        }
-
-        #[cfg(debug_assertions)]
-        println!("Entry {:?} was not found with signature {:?}", req_table, req_table.get_signature());
-
-        None
-    }
-
-
-    pub unsafe fn get_entry_by_index(&self, index: usize) -> AcpiSdtHeader {
-    
-        if index >= unsafe { self.entries() } {
-            panic!("XSDT index out of bounds");
-        }
-
-        let xsdt_base = self.xsdt_internals as *const u8;
-
-        let offset = 36 + (index * 8);
-
-        let curr_el_pointer = unsafe { xsdt_base.add(offset) } as *const u64;
-
-        let target_table_phys = unsafe { core::ptr::read_unaligned(curr_el_pointer) };
+    pub fn as_slice (&self) -> &'static [u8] {
+        unsafe {
         
-        let target_table_virt = (target_table_phys + self.hh_mem) as *const AcpiSdtHeader;
-
-        unsafe { core::ptr::read_unaligned(target_table_virt) }
-    }
-
-
-    pub fn read_self_headers(&self) -> AcpiSdtHeader{
-        unsafe { 
-            let header_ptr = self.xsdt_internals as *const AcpiSdtHeader;
-
-            read_unaligned(header_ptr)
+            from_raw_parts(self.sdt.get_raw_data_addres() as *const u8, self.sdt.get_data_len())
+        
         }
-    }   
-    
+
+    }
 }
 
-
-#[derive(Debug)]
-pub enum Tables {
-    XSDT,
-    MCFG
-}
-
-
-impl Tables {
-    pub fn get_signature(&self) -> [u8; 4] {
-        match self {
-            Tables::XSDT => [b'X',b'S',b'D',b'T'],
-            Tables::MCFG => [b'M',b'C',b'F',b'G']
+impl <'a, P: PhysicalAddress> RxsdtToIter<'a, P> for Xsdt<P> {
+    fn to_iter(&self) -> XsdtIter<'a, P> {
+        XsdtIter {
+            current_offset: 0,
+            hh_mem_offset: self.hh_mem,
+            slice: self.as_slice(),
+            _phantom: PhantomData
         }
     }
 }

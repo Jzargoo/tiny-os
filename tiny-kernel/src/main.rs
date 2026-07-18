@@ -2,7 +2,7 @@
 #![no_main]
 #![feature(abi_x86_interrupt)]
 
-use ::core::{fmt::Write, mem, panic::PanicInfo};
+use ::core::{mem, panic::PanicInfo, ptr::read_unaligned};
 mod core;
 mod acpi;
 mod logger;
@@ -15,7 +15,7 @@ use hal::bios_info::BiosInfo;
 
 use core::main;
 
-use crate::{acpi::xsdt::Tables, allocator::SlubAllocator, arch::x86_64::boot::limine::hlt_loop, hal::{BLACK, GREEN, framebuffer::Framebuffer, page_allocator::PageAllocator}, logger::graphycal::{bitmap_font::CELL_SIZE, writer::DisplayWriter}};
+use crate::{acpi::xsdt_iter::RxsdtToIter, allocator::SlubAllocator, arch::x86_64::boot::limine::hlt_loop, hal::{BLACK, GREEN, addresses::PhysicalAddress, framebuffer::Framebuffer, page_allocator::PageAllocator}, logger::graphycal::{bitmap_font::CELL_SIZE, writer::DisplayWriter}};
 
 pub extern crate alloc;
 
@@ -38,7 +38,7 @@ pub fn panic(qi: &PanicInfo) -> ! {
     hlt_loop()
 }
 
-pub fn kernel_main(bi: &mut BiosInfo) {
+pub fn kernel_main<P: PhysicalAddress>(bi: &mut BiosInfo<P>) {
 
     init_memory(bi);
     
@@ -55,12 +55,19 @@ pub fn kernel_main(bi: &mut BiosInfo) {
 
     dw.write_string("string again");    
 
+    println!("Data as slice in xsdt {:?} ", bi.xsdt.as_slice());
+    
+    println!("Xsdt has data len {:?} ", bi.xsdt.sdt.get_data_len());
 
     println!(
-        "Xsdt has headers {:?}", 
-        bi.xsdt.read_self_headers()
+        "Xsdt is {:?}", 
+        unsafe { read_unaligned(bi.xsdt.sdt) }
     );
-   
+    
+
+    for i in bi.xsdt.to_iter() {
+        println!("The acpi table has headers {:?}", i);
+    }
 
     main();
    
@@ -68,7 +75,7 @@ pub fn kernel_main(bi: &mut BiosInfo) {
     
 }
 
-pub fn init_memory(bi: &mut BiosInfo) {
+pub fn init_memory<P: PhysicalAddress>(bi: &mut BiosInfo<P>) {
 
     let short_ref: &mut dyn PageAllocator = bi.page_allocator;
 

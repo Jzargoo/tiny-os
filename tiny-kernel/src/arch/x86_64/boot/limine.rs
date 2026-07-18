@@ -1,11 +1,11 @@
 use limine::{
     self, BaseRevision, RequestsEndMarker, RequestsStartMarker, memmap::{Entry, MEMMAP_USABLE}, request::{
-        BootloaderInfoRequest, EntryPointRequest, FirmwareTypeRequest, FramebufferRequest, HhdmRequest, MemmapRequest, RsdpRequest, SmbiosRequest, StackSizeRequest
+        EntryPointRequest,  FramebufferRequest, HhdmRequest, MemmapRequest, RsdpRequest, StackSizeRequest
     }
 };
 
 use crate::{
-    acpi::{rsdp::{Rsdp, RsdpCommon}, xsdt::{Xsdt, XsdtInternals}}, arch::x86_64::{interrupts::enable_cpu_interrupts, page_allocator::PageAllocationMapper}, hal::{    
+    acpi::{acpi_sdt_header::AcpiSdtHeader, rsdp::{Rsdp, RsdpCommon}, xsdt::Xsdt}, arch::x86_64::{interrupts::enable_cpu_interrupts, page_allocator::PageAllocationMapper}, hal::{    
         KERNEL_HEAP_SIZE, bios_info::BiosInfo, buddy_mem_manager::BuddyManager, framebuffer::Framebuffer, kernel_allocator::BumpAllocator
     }, kernel_main, println};
 
@@ -89,9 +89,17 @@ pub  extern "C" fn _start() -> ! {
     let xsdt = unsafe { 
         
             ((*rsdp).xsdt_address + virt_addr) 
-                as *const XsdtInternals
+                as *const AcpiSdtHeader
         
     }; 
+
+    let xsdt = Xsdt::<x86_64::PhysAddr>::new(
+        unsafe {
+            xsdt.as_ref()
+                .expect("Was expected a correct reference to acpi sdt headers")
+        }, 
+        virt_addr
+    );
 
     
     
@@ -151,10 +159,7 @@ pub  extern "C" fn _start() -> ! {
             fb,
             ka,
             & mut page_allocator,
-            Xsdt {
-                hh_mem: virt_addr,
-                xsdt_internals: xsdt
-            }
+            xsdt
         );
  
 
