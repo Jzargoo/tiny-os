@@ -15,7 +15,7 @@ use hal::bios_info::BiosInfo;
 
 use core::main;
 
-use crate::{acpi::xsdt_iter::RxsdtToIter, allocator::SlubAllocator, arch::x86_64::boot::limine::hlt_loop, hal::{BLACK, GREEN, addresses::PhysicalAddress, framebuffer::Framebuffer, page_allocator::PageAllocator}, logger::graphycal::{bitmap_font::CELL_SIZE, writer::DisplayWriter}};
+use crate::{acpi::{mcfg::{self, Mcfg}, xsdt_iter::RxsdtToIter}, allocator::SlubAllocator, arch::x86_64::boot::limine::hlt_loop, hal::{BLACK, GREEN, addresses::PhysicalAddress, framebuffer::Framebuffer, page_allocator::PageAllocator}, logger::graphycal::{bitmap_font::CELL_SIZE, writer::DisplayWriter}};
 
 pub extern crate alloc;
 
@@ -55,18 +55,18 @@ pub fn kernel_main<P: PhysicalAddress>(bi: &mut BiosInfo<P>) {
 
     dw.write_string("string again");    
 
-    println!("Data as slice in xsdt {:?} ", bi.xsdt.as_slice());
-    
-    println!("Xsdt has data len {:?} ", bi.xsdt.sdt.get_data_len());
-
     println!(
         "Xsdt is {:?}", 
-        unsafe { read_unaligned(bi.xsdt.sdt) }
+        unsafe { read_unaligned(bi.acpi_tables.xsdt.sdt) }
     );
     
 
-    for i in bi.xsdt.to_iter() {
+    for i in bi.acpi_tables.xsdt.to_iter() {
         println!("The acpi table has headers {:?}", i);
+    }
+
+    for i in bi.acpi_tables.mcfg.unwrap().to_iter() {
+        println!(" Found enhanced pci mechanism!!!! There are details: {:?}", i)
     }
 
     main();

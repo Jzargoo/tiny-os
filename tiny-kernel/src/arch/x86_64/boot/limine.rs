@@ -3,9 +3,10 @@ use limine::{
         EntryPointRequest,  FramebufferRequest, HhdmRequest, MemmapRequest, RsdpRequest, StackSizeRequest
     }
 };
+use x86_64::PhysAddr;
 
 use crate::{
-    acpi::{acpi_sdt_header::AcpiSdtHeader, rsdp::{Rsdp, RsdpCommon}, xsdt::Xsdt}, arch::x86_64::{interrupts::enable_cpu_interrupts, page_allocator::PageAllocationMapper}, hal::{    
+    acpi::{acpi_sdt_header::AcpiSdtHeader, facp::Facp, hpet::Hpet, madt::Madt, mcfg::Mcfg, rsdp::{Rsdp, RsdpCommon}, table_registry::{TableRegistry, Tables}, xsdt::Xsdt, xsdt_iter::RxsdtToIter}, arch::x86_64::{interrupts::enable_cpu_interrupts, page_allocator::PageAllocationMapper}, hal::{    
         KERNEL_HEAP_SIZE, bios_info::BiosInfo, buddy_mem_manager::BuddyManager, framebuffer::Framebuffer, kernel_allocator::BumpAllocator
     }, kernel_main, println};
 
@@ -159,7 +160,7 @@ pub  extern "C" fn _start() -> ! {
             fb,
             ka,
             & mut page_allocator,
-            xsdt
+            parse_acpi_tables(xsdt, virt_addr as usize)
         );
  
 
@@ -301,4 +302,46 @@ pub fn is_rsdp_valid(ptr: *const u8, len: usize) -> bool {
         }
     }
     sum == 0
+}
+
+pub fn parse_acpi_tables(xsdt: Xsdt<PhysAddr>, hhdm: usize) -> TableRegistry<PhysAddr> {
+    
+    let mut facp = None;
+    let mut madt = None;
+    let mut hpet = None;
+    let mut mcfg = None;
+
+    for i in xsdt.to_iter() {
+        
+        if i.signature.eq(
+            &Tables::get_signature(&Tables::FACP)
+        ) {
+
+            facp = Some( Facp::new() );
+
+        } else if i.signature.eq(
+            &Tables::get_signature(&Tables::MCFG)
+        ) {
+
+            mcfg = Mcfg::new(i, hhdm)
+
+        } else if i.signature.eq(
+            &Tables::get_signature(&Tables::HPET)
+        ) {
+
+            hpet = Some( Hpet::new() );
+
+        } else if i.signature.eq(
+            &Tables::get_signature(&Tables::MADT)
+        ){
+
+            madt = Some( Madt::new() );
+        }
+
+    }
+
+    TableRegistry{
+        xsdt, facp, madt, hpet, mcfg
+    }
+
 }

@@ -1,11 +1,11 @@
 use crate::{acpi::{facp::Facp, hpet::Hpet, madt::Madt, mcfg::Mcfg, xsdt::Xsdt}, hal::addresses::PhysicalAddress};
 
 pub struct  TableRegistry <P: PhysicalAddress> {
-    xsdt: Xsdt<P>,
-    facp: Facp<P>,
-    madt: Madt<P>,
-    hpet: Hpet<P>,
-    mcfg: Mcfg<P>,
+    pub xsdt: Xsdt<P>,
+    pub facp: Option<Facp<P>>,
+    pub madt: Option<Madt<P>>,
+    pub hpet: Option<Hpet<P>>,
+    pub mcfg: Option<Mcfg<P>>,
 }
 
 pub enum Tables {
@@ -32,10 +32,10 @@ impl <P: PhysicalAddress> TableRegistry<P> {
     
     pub fn new(
         xsdt: Xsdt<P>,
-        facp: Facp<P>,
-        madt: Madt<P>,
-        hpet: Hpet<P>,
-        mcfg: Mcfg<P>,
+        facp: Option<Facp<P>>,
+        madt: Option<Madt<P>>,
+        hpet: Option<Hpet<P>>,
+        mcfg: Option<Mcfg<P>>,
     ) -> Self { 
         TableRegistry{
             xsdt, facp, madt, mcfg, hpet

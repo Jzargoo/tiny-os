@@ -1,11 +1,11 @@
-use crate::{acpi::xsdt::Xsdt, hal::{addresses::PhysicalAddress, framebuffer::Framebuffer, kernel_allocator::BumpAllocator, page_allocator::PageAllocator}};
+use crate::{acpi::{table_registry::TableRegistry}, hal::{addresses::PhysicalAddress, framebuffer::Framebuffer, kernel_allocator::BumpAllocator, page_allocator::PageAllocator}};
 
 #[repr(C)]
 pub struct BiosInfo<'a, P:PhysicalAddress> {
     pub framebuffer: Framebuffer,
     pub page_allocator: &'a mut dyn PageAllocator,
     pub kernel_alloc: BumpAllocator,
-    pub xsdt: Xsdt<P>
+    pub acpi_tables: TableRegistry<P>
 }
 
 impl <'a, P: PhysicalAddress> BiosInfo<'a, P> {
@@ -17,7 +17,7 @@ impl <'a, P: PhysicalAddress> BiosInfo<'a, P> {
         
         page_alloc: &'a mut dyn PageAllocator, 
         
-        xsdt: Xsdt<P>
+        acpi_tables: TableRegistry<P>
 
     ) -> Self{
 
@@ -25,7 +25,7 @@ impl <'a, P: PhysicalAddress> BiosInfo<'a, P> {
             framebuffer,
             kernel_alloc: bump_alloc,
             page_allocator: page_alloc,
-            xsdt
+            acpi_tables
         }
     }
 }
