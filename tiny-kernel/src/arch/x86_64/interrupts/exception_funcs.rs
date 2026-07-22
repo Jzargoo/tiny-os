@@ -1,5 +1,5 @@
 use spin::Once;
-use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
+use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode};
 
 use crate::println;
 
@@ -72,8 +72,8 @@ pub(in crate::arch::x86_64::interrupts) fn setup_idt() {
         idt.stack_segment_fault
             .set_handler_fn(stack_segment_fault_fn);
 
-        idt.device_not_available
-            .set_handler_fn(device_not_available_fn);
+        idt.page_fault
+            .set_handler_fn(page_fault_fn);
 
         idt.segment_not_present
             .set_handler_fn(segment_not_present_fn);
@@ -128,4 +128,9 @@ extern "x86-interrupt" fn general_protection_fault_fn(frame: InterruptStackFrame
 
 extern "x86-interrupt" fn double_fault_fn(frame: InterruptStackFrame, error_code: u64) -> ! {
     threw_exception_code!(frame, error_code, "DOUBLE FAULT INTERRUPTER", "a double fault occurred. This is usually caused when a previous exception handler fails to handle an exception and the CPU cannot recover from it");
+}
+
+
+extern "x86-interrupt" fn page_fault_fn(frame: InterruptStackFrame, error_code: PageFaultErrorCode){
+    threw_exception_code!(frame,error_code, "PAGE FAULT INTERRUPTER", "page fault. This is usually caused because of access to invalid page");
 }

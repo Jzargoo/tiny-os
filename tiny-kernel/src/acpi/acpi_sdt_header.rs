@@ -15,13 +15,16 @@ pub struct AcpiSdtHeader{
 }
 
 impl AcpiSdtHeader {
-    pub fn get_raw_data_addres(&self) -> usize {
-        self as *const _ as usize + size_of::<AcpiSdtHeader>()
+    pub fn get_raw_data_addres(&self, reserved_bits: usize) -> usize {
+        self as *const _ as usize + size_of::<AcpiSdtHeader>() + reserved_bits
     }
 
-    pub fn get_data_len(&self) -> usize {
+    pub fn get_data_len(&self, reserved_bits: usize ) -> usize {
         let total_size = self.len as usize;
         let header_size = size_of::<AcpiSdtHeader>();
-        total_size.saturating_sub(header_size)
+        
+        total_size
+            .saturating_sub(header_size)
+            .saturating_sub(reserved_bits)
     }
 }

@@ -6,8 +6,8 @@ pub mod xsdt;
 
 pub mod rsdp;
 pub mod facp;
-pub mod mcfg;
 pub mod hpet;
 pub mod madt;
 
-
+pub mod mcfg;
+pub mod mcfg_iter;

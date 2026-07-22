@@ -25,7 +25,10 @@ impl<P: PhysicalAddress> Xsdt<P> {
     pub fn as_slice (&self) -> &'static [u8] {
         unsafe {
         
-            from_raw_parts(self.sdt.get_raw_data_addres() as *const u8, self.sdt.get_data_len())
+            from_raw_parts(
+                self.sdt.get_raw_data_addres(0) as *const u8, 
+                self.sdt.get_data_len(0)
+            )
         
         }
 
