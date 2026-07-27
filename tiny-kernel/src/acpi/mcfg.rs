@@ -1,6 +1,6 @@
 use core::{marker::PhantomData, slice::from_raw_parts};
 
-use crate::{acpi::{acpi_sdt_header::AcpiSdtHeader, mcfg_iter::McfgIterator, table_registry::Tables}, hal::addresses::PhysicalAddress};
+use crate::{acpi::{acpi_sdt_header::AcpiSdtHeader, mcfg_iter::McfgIterator, table_registry::Tables}, arch::pci_device::PciDevice, hal::addresses::PhysicalAddress};
 
 #[derive(Clone, Copy)]
 pub struct Mcfg<P: PhysicalAddress> {
@@ -49,4 +49,5 @@ impl <P:PhysicalAddress> Mcfg<P> {
             _phantom: PhantomData
         }
     }
+
 }

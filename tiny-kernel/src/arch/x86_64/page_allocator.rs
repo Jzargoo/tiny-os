@@ -4,8 +4,8 @@ use crate::{hal::{buddy_mem_manager::BuddyManager, page_allocator::{PageAllocato
 
 #[derive(Debug)]
 pub struct PageAllocationMapper {
-    buddy_manager: BuddyManager,
-    ptr_table: OffsetPageTable<'static>,
+    pub buddy_manager: BuddyManager,
+    pub ptr_table: OffsetPageTable<'static>,
     k_offset: u64 
 }
 

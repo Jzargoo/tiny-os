@@ -66,7 +66,9 @@ pub fn kernel_main<P: PhysicalAddress>(bi: &mut BiosInfo<P>) {
     }
 
     for i in bi.acpi_tables.mcfg.unwrap().to_iter() {
-        println!(" Found enhanced pci mechanism!!!! There are details: {:?}", i)
+        println!(" Found enhanced pci mechanism!!!! There are details: {:?}", i);
+
+        println!("{:?}", i.collect_devices());
     }
 
     main();
@@ -86,3 +88,4 @@ pub fn init_memory<P: PhysicalAddress>(bi: &mut BiosInfo<P>) {
         ALLOCATOR.set_page_allocator(static_dyn_ptr);
     }
 }
+

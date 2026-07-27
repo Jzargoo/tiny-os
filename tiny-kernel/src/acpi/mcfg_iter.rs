@@ -1,6 +1,6 @@
 use core::marker::PhantomData;
 
-use crate::{arch::enhanced_pci_mechanism::EnhancedPciMechanism, hal::addresses::{PhysicalAddress, VirtualAddress}};
+use crate::{arch::enhanced_pci_mechanism::EnhancedPciMechanism, hal::addresses::{PhysicalAddress, VirtualAddress}, println};
 
 pub struct McfgIterator<'a, P: PhysicalAddress> {
     pub data_slice: &'a [u8],
@@ -56,6 +56,8 @@ fn parse_into_pci<P:PhysicalAddress>(bytes: [u8; 16], hhdm: u64) -> EnhancedPciM
     let reserved = u32::from_le_bytes(
         bytes[12..16].try_into().unwrap()
     );
+
+    println!("Virt address {} while a physical {}, on the other hand hhdm {}", virt_addr.to_u64(), bacm.to_u64(), hhdm);
 
     EnhancedPciMechanism::new(virt_addr.to_u64(), pci_segment, start_bus, end_bus, reserved)
 }

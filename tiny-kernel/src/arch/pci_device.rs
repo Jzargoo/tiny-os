@@ -2,42 +2,59 @@ use core::fmt::Debug;
 
 #[allow(dead_code)]
 pub struct PciDevice {
-    vendor_id: u16,
-    device_id: u16,
-    status: u16,
-    command: u16,
-    class: u8,
-    sub_class: u8,
-    bus: u8,
-    slot: u8, 
-    function: u8,
-    revision: u8,
-    prog_if: u8,
-    bist: u8,
-    header_type: PciHeaderType,
-    timer: u8,
-    cache_line_size: u8,
+    pub vendor_id: u16,
+    pub device_id: u16,
+    pub status: u16,
+    pub command: u16,
+    pub class: u8,
+    pub sub_class: u8,
+    pub bus: u8,
+    pub slot: u8, 
+    pub function: u8,
+    pub revision: u8,
+    pub prog_if: u8,
+    pub bist: u8,
+    pub header_type: PciHeaderType,
+    pub timer: u8,
+    pub cache_line_size: u8,
+    pub cap_pointer: u8,
 }
 
 #[allow(dead_code)]
 pub enum PciHeaderType {
     NORMAL(NormalDevice),
     BRIDGE(BridgeDevice),
-    UNKNOWN
+    UNKNOWN(u8)
 }
 
 #[allow(dead_code)]
 pub struct NormalDevice {
     pub bars: [Option<Bar>; 6],
-    pub sub_system_id: u32,
-    pub sub_system_vendor_id: u32,
+    pub sub_system_id: u16,
+    pub sub_system_vendor_id: u16,
     pub exp_rom_base_address: u32,
-    pub cap_pointer: u8
+    pub interrupt_line: u8,
+    pub interrupt_pin: u8,
 }
 
-#[allow(dead_code)]
+#[allow(dead_code)]#[allow(dead_code)]
 pub struct BridgeDevice {
-    pub bars: [Option<Bar>; 2]
+    pub bars: [Option<Bar>; 2],       
+    pub primary_bus: u8,             
+    pub secondary_bus: u8,           
+    pub subordinate_bus: u8,         
+    pub secondary_latency_timer: u8,
+    pub io_base: u8,
+    pub io_limit: u8,
+    pub secondary_status: u16,
+    pub memory_base: u16,            
+    pub memory_limit: u16,
+    pub prefetchable_memory_base: u16,
+    pub prefetchable_memory_limit: u16,
+    pub cap_pointer: u8, 
+    pub interrupt_line: u8,
+    pub interrupt_pin: u8,
+    pub bridge_control: u16,
 }
 
 #[allow(dead_code)]
@@ -63,7 +80,8 @@ impl PciDevice {
         bist: u8,
         header_type: PciHeaderType,
         timer: u8,
-        cache_line_size: u8
+        cache_line_size: u8,
+        cap_pointer: u8
     ) -> Self {
         Self { 
             vendor_id,
@@ -77,7 +95,8 @@ impl PciDevice {
             bist, 
             header_type, 
             timer, 
-            cache_line_size 
+            cache_line_size,
+            cap_pointer 
         }
     }
 }

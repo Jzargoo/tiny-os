@@ -3,7 +3,7 @@ use limine::{
         EntryPointRequest,  FramebufferRequest, HhdmRequest, MemmapRequest, RsdpRequest, StackSizeRequest
     }
 };
-use x86_64::PhysAddr;
+use x86_64::{PhysAddr, VirtAddr, structures::paging::{FrameAllocator, Mapper, Page, PageTableFlags, PhysFrame, Size4KiB}};
 
 use crate::{
     acpi::{acpi_sdt_header::AcpiSdtHeader, facp::Facp, hpet::Hpet, madt::Madt, mcfg::Mcfg, rsdp::{Rsdp, RsdpCommon}, table_registry::{TableRegistry, Tables}, xsdt::Xsdt, xsdt_iter::RxsdtToIter}, arch::x86_64::{interrupts::enable_cpu_interrupts, page_allocator::PageAllocationMapper}, hal::{    
@@ -102,6 +102,8 @@ pub  extern "C" fn _start() -> ! {
         virt_addr
     );
 
+    let tables = parse_acpi_tables(xsdt, virt_addr as usize);
+
     
     
     // INTERRUPTS INITIALIZATION
@@ -139,8 +141,22 @@ pub  extern "C" fn _start() -> ! {
     #[cfg(debug_assertions)]
     println!("Page allocator is {:?}", page_allocator);
 
+
     
-    
+    //MMIO INIT
+    let mcfg = &tables.mcfg.unwrap();
+    for i in mcfg.to_iter() {
+        println!("{:?}", i);
+        mmio_init(
+            &mut page_allocator.ptr_table,
+            &mut page_allocator.buddy_manager, 
+            i.end_pci_host_bridge as usize - i.start_pci_host_bridge as usize + 1usize, 
+            virt_addr, 
+            i.bacm - virt_addr
+        );
+    }
+
+
     
     // FRAMEBUFFER INITIALIZATION
     if let Some(fb) = framebuffer_init() &&  let Some(ka) = kernel_alloc  {
@@ -160,7 +176,7 @@ pub  extern "C" fn _start() -> ! {
             fb,
             ka,
             & mut page_allocator,
-            parse_acpi_tables(xsdt, virt_addr as usize)
+            tables
         );
  
 
@@ -342,6 +358,56 @@ pub fn parse_acpi_tables(xsdt: Xsdt<PhysAddr>, hhdm: usize) -> TableRegistry<Phy
 
     TableRegistry{
         xsdt, facp, madt, hpet, mcfg
+    }
+
+}
+
+pub fn mmio_init<M,A>(
+    mapper: &mut M,
+    alloc: &mut A,
+    bus_count: usize,
+    hhdm: u64,
+    phys_base: u64,
+) where M: Mapper<Size4KiB>, A: FrameAllocator<Size4KiB> {
+
+    let size = bus_count as u64 * 1024 * 1024; 
+
+    let phys_addr = PhysAddr::new(phys_base);
+    let virt_addr = VirtAddr::new(hhdm + phys_base);
+
+    let start_page: Page<Size4KiB> = Page::containing_address(virt_addr);
+    let end_page: Page<Size4KiB> = Page::containing_address(virt_addr + size);
+
+    let flags = PageTableFlags::WRITABLE | PageTableFlags::PRESENT | PageTableFlags::NO_CACHE;
+    
+    for page in Page::range_inclusive(start_page, end_page) {
+        let frame = PhysFrame::containing_address(
+            phys_addr + (page.start_address() - virt_addr)
+        );
+        
+        if let Ok(_existing) = mapper.translate_page(page) {
+            
+            unsafe {
+            
+                if let Ok(flush) = mapper.update_flags(page, flags) {
+                    flush.flush();
+                }
+            
+            }
+
+        } else {
+        
+            unsafe {
+            
+                mapper
+                    .map_to(page, frame, flags, alloc)
+                    .expect("Failed to map ECAM page")
+                    .flush(); 
+            
+            }
+
+        }
+
     }
 
 }

@@ -1,7 +1,7 @@
 #[cfg(target_arch = "x86_64")]
 pub mod x86_64;
 
-pub mod legacy_pci_device;
+pub mod pci_device;
 
 pub mod enhanced_pci_mechanism;
 
