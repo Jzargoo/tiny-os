@@ -31,4 +31,8 @@ qemu:
 	-machine type=q35 \
     -cpu max \
     -pflash  $(OVMF_CODE) \
-    -m 4G
+    -m 4G \
+	-device ahci,id=ahci0 \
+  	-device intel-hda,id=sound0 \
+  	-device e1000,netdev=net0 \
+  	-netdev user,id=net0 \

@@ -1,5 +1,6 @@
-use core::fmt::Debug;
+use core::fmt::{Debug, Display};
 
+#[derive(Debug)]
 #[allow(dead_code)]
 pub struct PciDevice {
     pub vendor_id: u16,
@@ -21,12 +22,14 @@ pub struct PciDevice {
 }
 
 #[allow(dead_code)]
+#[derive(Debug)]
 pub enum PciHeaderType {
     NORMAL(NormalDevice),
     BRIDGE(BridgeDevice),
     UNKNOWN(u8)
 }
 
+#[derive(Debug)]
 #[allow(dead_code)]
 pub struct NormalDevice {
     pub bars: [Option<Bar>; 6],
@@ -35,9 +38,11 @@ pub struct NormalDevice {
     pub exp_rom_base_address: u32,
     pub interrupt_line: u8,
     pub interrupt_pin: u8,
+    pub multifunc: bool
 }
 
-#[allow(dead_code)]#[allow(dead_code)]
+#[derive(Debug)]
+#[allow(dead_code)]
 pub struct BridgeDevice {
     pub bars: [Option<Bar>; 2],       
     pub primary_bus: u8,             
@@ -46,21 +51,94 @@ pub struct BridgeDevice {
     pub secondary_latency_timer: u8,
     pub io_base: u8,
     pub io_limit: u8,
+    pub io_base_upper: u16,
+    pub io_limit_upper: u16,
     pub secondary_status: u16,
     pub memory_base: u16,            
     pub memory_limit: u16,
     pub prefetchable_memory_base: u16,
     pub prefetchable_memory_limit: u16,
+    pub prefetchable_memory_base_upper: u32,
+    pub prefetchable_memory_limit_upper: u32,
     pub cap_pointer: u8, 
     pub interrupt_line: u8,
     pub interrupt_pin: u8,
+    pub erom_bar: u32,
     pub bridge_control: u16,
+    pub multifunc: bool
 }
 
 #[allow(dead_code)]
-pub struct Bar {
-    pub address: u64, 
-    pub is_port: bool
+#[derive(Debug, Clone, Copy)]
+pub enum Bar {
+    Memory32(u32),
+    Memory64(u64),
+    Io(u32),
+}
+
+
+
+pub unsafe fn parse_bars<const N: usize>(ptr: *const u8) -> [Option<Bar>; N] {
+
+    let mut bars = [None; N];
+
+    let mut i = 0;
+
+    let mut reg_counter = 0;
+    
+    while i < N {
+        
+        let bar_offset = 0x10 + (reg_counter * 4);
+        
+        let bar_value = unsafe { *(ptr.add(bar_offset) as *const u32) };
+        
+        if bar_value == 0 {
+
+            i += 1;
+
+            reg_counter +=1;
+
+            continue;
+
+        }
+
+        if (bar_value & 0x01) == 0 {
+            // Memory Space
+            
+            if ((bar_value >> 1) & 0x03) == 2  {
+                
+                let bar_upper = unsafe { *(ptr.add(bar_offset + 4) as *const u32) };
+                
+                let addr = ((bar_upper as u64) << 32) | ((bar_value & 0xFFFF_FFF0) as u64);
+                
+                bars[i] = Some(Bar::Memory64(addr));
+                
+                reg_counter += 2;
+
+            } else {
+            
+                let addr = (bar_value & 0xFFFF_FFF0) as u64;
+            
+                bars[i] = Some(Bar::Memory32(addr as u32));
+            
+                reg_counter += 1;
+            }
+
+        } else {
+            
+            // I/O Space
+            
+            let port = bar_value & 0xFFFF_FFFC;
+            
+            bars[i] = Some(Bar::Io(port));
+            
+            reg_counter += 1;
+        }
+
+        i += 1;
+    }
+
+    bars
 }
 
 #[allow(dead_code)]
@@ -101,7 +179,7 @@ impl PciDevice {
     }
 }
 
-impl Debug for PciDevice {
+impl Display for PciDevice {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("PciDevice").field("vendor_id", &self.vendor_id).field("device_id", &self.device_id).finish()
     }

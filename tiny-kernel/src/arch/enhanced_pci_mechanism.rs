@@ -1,6 +1,8 @@
+
+
 use alloc::vec::Vec;
 
-use crate::{arch::pci_device::PciHeaderType, println};
+use crate::{arch::pci_device::{BridgeDevice, NormalDevice, PciHeaderType, parse_bars}, println};
 
 use super::pci_device::PciDevice;
 
@@ -53,6 +55,8 @@ impl EnhancedPciMechanism {
 
                 #[cfg(debug_assertions)]
                 println!("Parsed a device {:?}", pci);
+
+            
                     
                 collected.push(pci);
             }
@@ -100,14 +104,41 @@ fn parse_pci_device(start_address: u64, bus: u8  , slot: u8, function: u8) -> Op
 
         let header_type_val = raw_header_type & 0x7F;
 
-        let header_type = PciHeaderType::UNKNOWN(header_type_val);
+        let multifunc = (header_type_val >> 7) != 0;
+
+        let header_type = match header_type_val {
+            
+            0x0 => PciHeaderType::NORMAL(
+                parse_normal_header(start_address, multifunc)
+            ),
+            
+            0x1 => PciHeaderType::BRIDGE(
+                parse_bridge_header(start_address, multifunc)
+            ),
+
+            _   => PciHeaderType::UNKNOWN(header_type_val) 
         
+        };
+        
+
         Some(
-            PciDevice::new(vendor_id, device_id, status, command, class, sub_class, bus, slot, function, revision, prog_if, bist, header_type, timer, cache_line_size, cap_pointer)
+            PciDevice::new(
+                vendor_id, device_id, 
+                status, command, 
+                class, sub_class, 
+                bus, slot, function, 
+                revision, prog_if, bist, 
+                header_type, 
+                timer, cache_line_size, cap_pointer
+            )
         )
+
     }
 }
 
+
+
+// get address by base and identifiers in the bus
 pub fn get_bdf_address(virt_base: u64, bus: u8, dev: u8, func: u8) -> u64 {
     let bus_offset = bus as u64;
     let dev_offset = (dev & 0x1F) as u64;   // 0..31
@@ -116,3 +147,82 @@ pub fn get_bdf_address(virt_base: u64, bus: u8, dev: u8, func: u8) -> u64 {
     let offset = (bus_offset << 20) | (dev_offset << 15) | (func_offset << 12);
     virt_base + offset
 }
+
+
+
+// parse header for device 0x0
+unsafe fn parse_normal_header(bdf_address: u64, multifunc: bool) -> NormalDevice {
+    let ptr = bdf_address as *const u8;
+
+    let bars = unsafe{ parse_bars::<6>(ptr.add(0x10)) };
+    
+    
+    NormalDevice { 
+        bars, 
+        
+        sub_system_vendor_id: unsafe{ *(ptr.add(0x2C) as *const u16) },
+        
+        sub_system_id:        unsafe{ *(ptr.add(0x2E) as *const u16) },
+        
+        exp_rom_base_address: unsafe{ *(ptr.add(0x30) as *const u32) },
+        
+        interrupt_line:       unsafe{ *ptr.add(0x3C) },
+        
+        interrupt_pin:        unsafe{ *ptr.add(0x3D) },
+        
+        multifunc,  
+    }
+}
+
+unsafe fn parse_bridge_header (bdf_address: u64, multifunc: bool) -> BridgeDevice{
+
+    let ptr = bdf_address as *const u8;
+
+    BridgeDevice { 
+        
+        bars:                            unsafe { parse_bars::<2>(ptr) }, 
+        
+        secondary_latency_timer:         unsafe { *(ptr.add(0x18)) }, 
+        
+        subordinate_bus:                 unsafe { *(ptr.add(0x19)) }, 
+        
+        secondary_bus:                   unsafe { *(ptr.add(0x1A)) }, 
+        
+        primary_bus:                     unsafe { *(ptr.add(0x1B)) }, 
+        
+        secondary_status:                unsafe { *(ptr.add(0x1C) as *const u16) },
+
+        io_limit:                        unsafe { *(ptr.add(0x1E)) }, 
+        
+        io_base:                         unsafe { *(ptr.add(0x1F)) }, 
+        
+        memory_limit:                    unsafe { *(ptr.add(0x20) as *const u16) }, 
+        
+        memory_base:                     unsafe { *(ptr.add(0x22) as *const u16) }, 
+        
+        prefetchable_memory_limit:       unsafe { *(ptr.add(0x24) as *const u16) }, 
+        
+        prefetchable_memory_base:        unsafe { *(ptr.add(0x26) as *const u16) },
+        
+        prefetchable_memory_limit_upper: unsafe { *(ptr.add(0x28) as *const u32) }, 
+        
+        prefetchable_memory_base_upper:  unsafe { *(ptr.add(0x2C) as *const u32) },
+        
+        io_limit_upper:                  unsafe { *(ptr.add(0x30) as *const u16) }, 
+        
+        io_base_upper:                   unsafe { *(ptr.add(0x32) as *const u16) },
+        
+        cap_pointer:                     unsafe { *(ptr.add(0x37)) }, 
+        
+        erom_bar:                        unsafe { *(ptr.add(0x38) as *const u32) },
+
+        bridge_control:                  unsafe { *(ptr.add(0x3C) as *const u16) }, 
+        
+        interrupt_pin:                   unsafe { *(ptr.add(0x3E)) }, 
+        
+        interrupt_line:                  unsafe { *(ptr.add(0x3F)) }, 
+        
+        multifunc 
+    }
+}
+   
