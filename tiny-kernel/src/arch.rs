@@ -1,9 +1,14 @@
 #[cfg(target_arch = "x86_64")]
 pub mod x86_64;
 
+pub mod header_specific_pci;
+
 pub mod pci_device;
 
+pub mod device_capibilities;
+
 pub mod enhanced_pci_mechanism;
+
 
 #[cfg(target_arch = "x86_64")]
 pub mod pages {

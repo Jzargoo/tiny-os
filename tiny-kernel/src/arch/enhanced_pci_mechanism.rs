@@ -1,8 +1,6 @@
-
-
 use alloc::vec::Vec;
 
-use crate::{arch::pci_device::{BridgeDevice, NormalDevice, PciHeaderType, parse_bars}, println};
+use crate::{arch::{device_capibilities::PciCapabilities, header_specific_pci::NormalDevice, pci_device::{BasicDevice, PciHeaderType, parse_bars}}, println};
 
 use super::pci_device::PciDevice;
 
@@ -76,33 +74,19 @@ fn parse_pci_device(start_address: u64, bus: u8  , slot: u8, function: u8) -> Op
 
     unsafe {
     
-        let vendor_id = *(ptr.add(0x00) as *const u16);
-        let device_id = *(ptr.add(0x02) as *const u16);
-
-        if vendor_id == 0xFFFF {
+        let basic = *( ptr as *const BasicDevice );
+        
+        if basic.vendor_id == 0xFFFF {
             return None;
         }
 
-        let command = *(ptr.add(0x04) as *const u16);
-        let status  = *(ptr.add(0x06) as *const u16);
-
-        let revision  = *ptr.add(0x08);
-        let prog_if   = *ptr.add(0x09);
-        let sub_class = *ptr.add(0x0A);
-        let class     = *ptr.add(0x0B);
-
-        let cache_line_size = *ptr.add(0x0C);
-        let timer           = *ptr.add(0x0D);
-        let raw_header_type = *ptr.add(0x0E);
-        let bist            = *ptr.add(0x0F);
-
-        let cap_pointer = if (status & (1 << 4)) != 0 {
+        let cap_pointer = if (basic.status & (1 << 4)) != 0 {
             *ptr.add(0x34)
         } else {
             0
         };
 
-        let header_type_val = raw_header_type & 0x7F;
+        let header_type_val = basic.header_type & 0x7F;
 
         let multifunc = (header_type_val >> 7) != 0;
 
@@ -119,17 +103,24 @@ fn parse_pci_device(start_address: u64, bus: u8  , slot: u8, function: u8) -> Op
             _   => PciHeaderType::UNKNOWN(header_type_val) 
         
         };
+
+        let mut capabilities = None;
         
+        if cap_pointer != 0 {
+            
+            capabilities = Some(
+                PciCapabilities::parse(start_address, cap_pointer)
+            );
+
+        }
 
         Some(
             PciDevice::new(
-                vendor_id, device_id, 
-                status, command, 
-                class, sub_class, 
-                bus, slot, function, 
-                revision, prog_if, bist, 
+                bus, slot, function,
+                basic, 
                 header_type, 
-                timer, cache_line_size, cap_pointer
+                Some(start_address),
+                capabilities
             )
         )
 
@@ -152,6 +143,7 @@ pub fn get_bdf_address(virt_base: u64, bus: u8, dev: u8, func: u8) -> u64 {
 
 // parse header for device 0x0
 unsafe fn parse_normal_header(bdf_address: u64, multifunc: bool) -> NormalDevice {
+    
     let ptr = bdf_address as *const u8;
 
     let bars = unsafe{ parse_bars::<6>(ptr.add(0x10)) };
