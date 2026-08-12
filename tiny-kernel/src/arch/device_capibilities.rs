@@ -24,7 +24,7 @@ pub struct PciCapabilities {
 }
 
 
-#[repr(C, packed)]
+#[repr(C)]
 #[derive(Debug)]
 pub struct MsiCapability {
     pub cap_id: u8,          
@@ -39,6 +39,7 @@ impl MsiCapability {
         (self.message_control & 0b1000000) != 0
     }
 
+    
     unsafe fn get_64_addres (&self) -> Option<u64> {
         let low_ptr = self.message_address_low as *const u32;
 
@@ -102,4 +103,5 @@ impl PciCapabilities {
 
         capabilities
     }
+    
 }

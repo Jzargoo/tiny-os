@@ -35,87 +35,13 @@ pub struct BasicDevice{
 
 
 
-#[allow(
+#[allow(dead_code)]
 #[derive(Debug)]
 pub enum PciHeaderType {
     NORMAL(NormalDevice),
     BRIDGE(BridgeDevice),
     UNKNOWN(u8)
 }
-
-#[allow(dead_code)]
-#[derive(Debug, Clone, Copy)]
-pub enum Bar {
-    Memory32(u32),
-    Memory64(u64),
-    Io(u32),
-}
-
-
-
-pub unsafe fn parse_bars<const N: usize>(ptr: *const u8) -> [Option<Bar>; N] {
-
-    let mut bars = [None; N];
-
-    let mut i = 0;
-
-    let mut reg_counter = 0;
-    
-    while i < N {
-        
-        let bar_offset = 0x10 + (reg_counter * 4);
-        
-        let bar_value = unsafe { *(ptr.add(bar_offset) as *const u32) };
-        
-        if bar_value == 0 {
-
-            i += 1;
-
-            reg_counter +=1;
-
-            continue;
-
-        }
-
-        if (bar_value & 0x01) == 0 {
-            // Memory Space
-            
-            if ((bar_value >> 1) & 0x03) == 2  {
-                
-                let bar_upper = unsafe { *(ptr.add(bar_offset + 4) as *const u32) };
-                
-                let addr = ((bar_upper as u64) << 32) | ((bar_value & 0xFFFF_FFF0) as u64);
-                
-                bars[i] = Some(Bar::Memory64(addr));
-                
-                reg_counter += 2;
-
-            } else {
-            
-                let addr = (bar_value & 0xFFFF_FFF0) as u64;
-            
-                bars[i] = Some(Bar::Memory32(addr as u32));
-            
-                reg_counter += 1;
-            }
-
-        } else {
-            
-            // I/O Space
-            
-            let port = bar_value & 0xFFFF_FFFC;
-            
-            bars[i] = Some(Bar::Io(port));
-            
-            reg_counter += 1;
-        }
-
-        i += 1;
-    }
-
-    bars
-}
-
 
 
 #[allow(dead_code)]
