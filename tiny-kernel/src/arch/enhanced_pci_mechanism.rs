@@ -1,4 +1,3 @@
-
 use alloc::vec::Vec;
 
 use crate::{arch::{device_capibilities::PciCapabilities, header_specific_pci::{BridgeDevice, NormalDevice}, pci_device::{BasicDevice, PciHeaderType}}, println};
@@ -23,12 +22,14 @@ impl EnhancedPciMechanism {
         end_pci_host_bridge: u8,
         reserved: u32
     ) -> Self{
+
         EnhancedPciMechanism { 
             bacm,
             bus_segment_number, 
             start_pci_host_bridge, end_pci_host_bridge, 
             reserved 
         }
+
     }
 
     pub fn collect_devices(&self) -> Vec<PciDevice>{

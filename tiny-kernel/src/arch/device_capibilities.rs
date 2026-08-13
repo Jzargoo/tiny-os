@@ -1,3 +1,5 @@
+use alloc::vec;
+
 
 #[derive(Debug)]
 pub struct PciCapabilities {
@@ -39,9 +41,47 @@ impl MsiCapability {
         (self.message_control & 0b1000000) != 0
     }
 
+    pub unsafe fn write_vn(&self, vector: u8) {
+
+        let message_data = if self.is_64bit() {
+            let ptr = (self as *const MsiCapability) as *const u8;
+            
+            unsafe { 
+                ptr.add(0xC)
+            }
+
+        } else {
+            
+            let ptr = (self as *const MsiCapability) as *const u8;
+            
+            unsafe { 
+                ptr.add(0x8)
+            }
+            
+        };
+
+        let message = MsiCapability::create_msi_message_data(vector);
+
+        unsafe {
+            * ( message_data as *mut u16 ) = message; 
+        }
+
+    }
+
+    fn create_msi_message_data(vector: u8) -> u16{
+        
+        let vector_bits = (vector as u16) &0xff;
+
+        let delivery_mode = 0b001 << 8;
+
+        let trigger_mode = 0b0 << 14;
+
+        vector_bits | delivery_mode | trigger_mode
+    }
+
     
     unsafe fn get_64_addres (&self) -> Option<u64> {
-        let low_ptr = self.message_address_low as *const u32;
+        let low_ptr = (&self.message_address_low) as *const u32;
 
         if !self.is_64bit() {
             None

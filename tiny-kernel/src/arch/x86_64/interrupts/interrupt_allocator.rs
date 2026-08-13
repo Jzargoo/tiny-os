@@ -1,31 +1,42 @@
-use core::sync::atomic::Ordering;
+use core::{arch::naked_asm, sync::atomic::Ordering};
+
+use crate::arch::x86_64::interrupts::interrupt_funcs::IDT;
 
 
-const VECTOR_POOL_SIZE: usize = 32;
-const VECTOR_BASE: usize = 0x40;
+pub(super) const VECTOR_POOL_SIZE: u8 = 200;
+pub(super) const VECTOR_BASE: u8 = 0x40;
 
 pub struct InterruptVectorAllocator{
-    pub used: [bool; VECTOR_POOL_SIZE],
-    starts_from: usize
+    pub used: [Option<fn()>; VECTOR_POOL_SIZE as usize],
+    starts_from: u8
 }
 
 impl InterruptVectorAllocator {
     pub const fn default() -> Self{
         InterruptVectorAllocator { 
-            used: [false; VECTOR_POOL_SIZE],
+            used: [None; VECTOR_POOL_SIZE as usize],
             starts_from: VECTOR_BASE
         }
     }
 
-    pub fn get_free_interrupt_number(&mut self) -> usize {
+    pub fn set_and_get_free_vector(&mut self, interruptFn: fn()) -> Option<u8> {
         
-        for i in 0..VECTOR_POOL_SIZE {
-            
-            if !self.used[i] {
-                return i;
-            }
+        if IDT.get().is_none() {
+            return None;
         }
 
-        0
+        for i in 0..VECTOR_POOL_SIZE as usize{
+            
+            if self.used[i].is_none() { 
+                
+                self.used[i] = Some(interruptFn);
+
+                return Some(i as u8 + VECTOR_BASE)
+            }
+
+        }
+
+        None       
     }
 }
+

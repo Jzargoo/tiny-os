@@ -351,7 +351,8 @@ pub fn parse_acpi_tables(xsdt: Xsdt<PhysAddr>, hhdm: usize) -> TableRegistry<Phy
             &Tables::get_signature(&Tables::MADT)
         ){
 
-            madt = Some( Madt::new() );
+            madt = Some( Madt::new(i) );
+            
         }
 
     }

@@ -1,11 +1,16 @@
 
 use spin::Mutex;
 
-use crate::arch::x86_64::interrupts::{exception_funcs::setup_idt, gdt::setup_gdt, interrupt_allocator::{InterruptVectorAllocator}};
+use crate::arch::x86_64::interrupts::{interrupt_funcs::setup_idt, gdt::setup_gdt, interrupt_allocator::{InterruptVectorAllocator}};
 
-mod exception_funcs;
-mod gdt;
+mod interrupt_funcs;
 pub mod interrupt_allocator;
+mod interrupt_stabber;
+
+pub mod lapic;
+
+mod gdt;
+
 
 pub(in crate::arch::x86_64) fn enable_cpu_interrupts() {
     setup_gdt();
