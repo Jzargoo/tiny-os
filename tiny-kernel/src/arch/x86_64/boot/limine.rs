@@ -6,7 +6,7 @@ use limine::{
 use x86_64::{PhysAddr, VirtAddr, structures::paging::{FrameAllocator, Mapper, Page, PageTableFlags, PhysFrame, Size4KiB}};
 
 use crate::{
-    acpi::{acpi_sdt_header::AcpiSdtHeader, facp::Facp, hpet::Hpet, madt::Madt, mcfg::Mcfg, rsdp::{Rsdp, RsdpCommon}, table_registry::{TableRegistry, Tables}, xsdt::Xsdt, xsdt_iter::RxsdtToIter}, arch::x86_64::{interrupts::enable_cpu_interrupts, page_allocator::PageAllocationMapper}, hal::{    
+    acpi::{acpi_sdt_header::AcpiSdtHeader, facp::Facp, hpet::Hpet, madt::Madt, mcfg::Mcfg, rsdp::{Rsdp, RsdpCommon}, table_registry::{TableRegistry, Tables}, xsdt::Xsdt, xsdt_iter::RxsdtToIter}, arch::x86_64::{interrupts::{enable_cpu_interrupts}, page_allocator::PageAllocationMapper}, hal::{    
         KERNEL_HEAP_SIZE, bios_info::BiosInfo, buddy_mem_manager::BuddyManager, framebuffer::Framebuffer, kernel_allocator::BumpAllocator
     }, kernel_main, println};
 
@@ -107,7 +107,10 @@ pub  extern "C" fn _start() -> ! {
     
     
     // INTERRUPTS INITIALIZATION
+
     enable_cpu_interrupts();
+
+
     
     
     x86_64::instructions::interrupts::int3();

@@ -3,8 +3,8 @@ use core::{arch::naked_asm, sync::atomic::Ordering};
 use crate::arch::x86_64::interrupts::interrupt_funcs::IDT;
 
 
-pub(super) const VECTOR_POOL_SIZE: u8 = 200;
-pub(super) const VECTOR_BASE: u8 = 0x40;
+pub(super) const VECTOR_POOL_SIZE: u8 = 192;
+pub(super) const VECTOR_BASE: u8 = 0x32;
 
 pub struct InterruptVectorAllocator{
     pub used: [Option<fn()>; VECTOR_POOL_SIZE as usize],

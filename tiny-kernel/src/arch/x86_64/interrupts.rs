@@ -5,7 +5,7 @@ use crate::arch::x86_64::interrupts::{interrupt_funcs::setup_idt, gdt::setup_gdt
 
 mod interrupt_funcs;
 pub mod interrupt_allocator;
-mod interrupt_stabber;
+pub(super)mod interrupt_stabber;
 
 pub mod lapic;
 

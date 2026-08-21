@@ -11,6 +11,7 @@ mod hal;
 mod arch;
 
 use alloc::{boxed::Box};
+
 use hal::bios_info::BiosInfo;
 
 use core::main;
