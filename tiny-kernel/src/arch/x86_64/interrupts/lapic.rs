@@ -1,21 +1,47 @@
-use core::{cmp::Ordering, sync::atomic::AtomicUsize};
-
-use lapic::EndOfInterrupt;
+use lapic::{LocalApic, TimerLVT};
 use spin::Mutex;
+use x86_64::VirtAddr;
 
-static LAPIC_ADDR: AtomicUsize = AtomicUsize::new(0);
+use crate::arch::{scheduling, x86_64::interrupts::VECTOR_INTERRUPT_ALLOCATOR};
+pub struct ApicDriver {
+    apic: &'static mut LocalApic
+}
 
-pub(super) unsafe fn lapic_send_eoi(){
+pub static APIC_DRIVER: Mutex<Option<ApicDriver>>  = Mutex::new(None);
 
-    if LAPIC_ADDR.load(core::sync::atomic::Ordering::Relaxed) == 0 {
-        panic!("Lapic address is not initialized yet, however there was a call to send EOI to LAPIC(addr is not known)");
+pub unsafe fn raw_send_eoi() {
+    let eoi_ptr = (0xFEE0_0000 as usize + 0xB0) as *mut u32;
+    
+    unsafe { eoi_ptr.write_volatile(0) };
+}
+
+impl ApicDriver {
+
+    pub fn enable(&self){
+        let mut iv = self.apic.spurious_iv;
+
+        iv.set_apic_enabled(0x1);
+        
+        iv.set_spurious_vector(0xFF);
     }
 
-    let mut eoi = EndOfInterrupt::new();
+    pub unsafe fn new(addr: VirtAddr) -> Self{
+        let apic = unsafe { &mut *(addr.as_mut_ptr() as *mut LocalApic) };
+        Self { apic }
+    }
 
-    eoi.set_eoi(0);
+    pub unsafe fn setup_timer(&self) -> Option<u8> {
 
-    let bytes = eoi.into_bytes();
+        let lvn = VECTOR_INTERRUPT_ALLOCATOR.lock().set_and_get_free_vector(
+            scheduling::schedule
+        );
 
+        if let Some(lvt) = lvn {
 
-} 
+            self.apic.timer_lvt = TimerLVT::new();
+        }
+
+        lvn
+    }
+}
+

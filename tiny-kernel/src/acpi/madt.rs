@@ -16,12 +16,37 @@ impl <P:PhysicalAddress> Madt<P> {
         }
     }
 
-    pub fn get_lapic_addr(&self) -> u32{
+    pub fn get_data_addr(&self) -> u64{
+
         let raw_addr = self.sdt.get_raw_data_addres(0);
 
         unsafe { 
-            *(raw_addr as *const u32)
+            *(raw_addr as *const u64)
         }
         
     }
+}
+
+#[cfg(target_arch="x86_64")]
+use crate::arch::x86_64::interrupts::lapic::{APIC_DRIVER, ApicDriver};
+
+#[cfg(target_arch="x86_64")]
+use x86_64::VirtAddr;
+
+#[cfg(target_arch="x86_64")]
+impl <P:PhysicalAddress> Madt<P>{
+    
+    pub fn set_lapic(&self){
+
+        *APIC_DRIVER.lock() = 
+            unsafe { 
+                Some (
+                    ApicDriver::new(
+                        VirtAddr::new(self.get_data_addr())
+                    )
+                )
+            }
+
+    }
+
 }

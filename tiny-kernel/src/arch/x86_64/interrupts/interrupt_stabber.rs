@@ -1,7 +1,7 @@
-use core::arch::{global_asm, naked_asm};
+use core::{arch::{global_asm, naked_asm}, num};
 
 
-use crate::{arch::x86_64::interrupts::{VECTOR_INTERRUPT_ALLOCATOR, interrupt_allocator::VECTOR_BASE, lapic::lapic_send_eoi}, println, threw_exception};
+use crate::{arch::x86_64::interrupts::{VECTOR_INTERRUPT_ALLOCATOR, interrupt_allocator::VECTOR_BASE, lapic::{APIC_DRIVER, raw_send_eoi}}, println, threw_exception};
 
 
 macro_rules! make_isr_no_err {
@@ -113,11 +113,15 @@ unsafe extern "C" fn common_interrupt_fn (frame: *mut InterruptStackFrameWithVec
 
         isr_fn();
 
-        unsafe { lapic_send_eoi() };
+        if number == 0xff{
+            return;
+        }
+
+        unsafe { raw_send_eoi() }
 
     } else {
 
-        unsafe { lapic_send_eoi() };
+        unsafe { raw_send_eoi() }
 
         threw_exception!(
             frame,

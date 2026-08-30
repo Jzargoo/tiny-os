@@ -9,6 +9,8 @@ pub mod device_capibilities;
 
 pub mod enhanced_pci_mechanism;
 
+pub mod scheduling;
+
 
 #[cfg(target_arch = "x86_64")]
 pub mod pages {
