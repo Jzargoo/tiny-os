@@ -6,7 +6,7 @@ edition = "2024"
 [dependencies]
 limine = {"version"="0.6.3", optional=true}
 spin = "0.12.0" # This dependency so cool
-lapic="0.1.1"
+lapic = { git = "https://github.com/Jzargoo/lapic.git", rev = "423090d" }
 
 [target.'cfg(target_arch = "x86_64")'.dependencies]
 x86_64 = "0.15.4"

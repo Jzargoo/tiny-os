@@ -6,7 +6,7 @@ use limine::{
 use x86_64::{PhysAddr, VirtAddr, structures::paging::{FrameAllocator, Mapper, Page, PageTableFlags, PhysFrame, Size4KiB}};
 
 use crate::{
-    acpi::{acpi_sdt_header::AcpiSdtHeader, facp::Facp, hpet::Hpet, madt::Madt, mcfg::Mcfg, rsdp::{Rsdp, RsdpCommon}, table_registry::{TableRegistry, Tables}, xsdt::Xsdt, xsdt_iter::RxsdtToIter}, arch::x86_64::{interrupts::{enable_cpu_interrupts}, page_allocator::PageAllocationMapper}, hal::{    
+    acpi::{acpi_sdt_header::AcpiSdtHeader, xsdt::Xsdt}, arch::x86_64::{hlt_loop, interrupts::enable_cpu_interrupts, page_allocator::PageAllocationMapper, parse_acpi_tables, rsdp, setup_lapic}, hal::{    
         KERNEL_HEAP_SIZE, bios_info::BiosInfo, buddy_mem_manager::BuddyManager, framebuffer::Framebuffer, kernel_allocator::BumpAllocator
     }, kernel_main, println};
 
@@ -110,9 +110,13 @@ pub  extern "C" fn _start() -> ! {
 
     enable_cpu_interrupts();
 
+    if let Some(madt) = &tables.madt {
+        setup_lapic(madt);
+    } else {
+        panic!("Could not set up lapic table from ACPI specification")
+    }
 
-    
-    
+
     x86_64::instructions::interrupts::int3();
     
 
@@ -291,80 +295,8 @@ fn init_kernel_alloc(entries: &[&Entry], offset: u64) -> Option<BumpAllocator> {
     None
 }
 
-pub fn hlt_loop() -> ! {
-    loop {
-        x86_64::instructions::hlt();
-    }
-}
 
-fn rsdp(address: u64) -> *const Rsdp {
-    let pointer = address as *const RsdpCommon;
 
-    if unsafe { (*pointer).revision } >= 2 {
-        if !is_rsdp_valid(address as *const u8, 36) {
-            
-            panic!("Rsdp is incorrect! Checksum is wrong");
-        }
-        address as *const Rsdp       
-    } else {
-        panic!("We do not support rsdp of the first revision that it provided primarily for 32bit system.")
-    }
-}
-
-// 36 bits for v2+
-// 20 bits for v1,0
-pub fn is_rsdp_valid(ptr: *const u8, len: usize) -> bool {
-    let mut sum: u8 = 0;
-    for i in 0..len {
-        unsafe {
-            sum = sum.wrapping_add(*ptr.add(i));
-        }
-    }
-    sum == 0
-}
-
-pub fn parse_acpi_tables(xsdt: Xsdt<PhysAddr>, hhdm: usize) -> TableRegistry<PhysAddr> {
-    
-    let mut facp = None;
-    let mut madt = None;
-    let mut hpet = None;
-    let mut mcfg = None;
-
-    for i in xsdt.to_iter() {
-        
-        if i.signature.eq(
-            &Tables::get_signature(&Tables::FACP)
-        ) {
-
-            facp = Some( Facp::new() );
-
-        } else if i.signature.eq(
-            &Tables::get_signature(&Tables::MCFG)
-        ) {
-
-            mcfg = Mcfg::new(i, hhdm)
-
-        } else if i.signature.eq(
-            &Tables::get_signature(&Tables::HPET)
-        ) {
-
-            hpet = Some( Hpet::new() );
-
-        } else if i.signature.eq(
-            &Tables::get_signature(&Tables::MADT)
-        ){
-
-            madt = Some( Madt::new(i) );
-            
-        }
-
-    }
-
-    TableRegistry{
-        xsdt, facp, madt, hpet, mcfg
-    }
-
-}
 
 pub fn mmio_init<M,A>(
     mapper: &mut M,

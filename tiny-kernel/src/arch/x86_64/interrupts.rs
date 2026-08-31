@@ -9,6 +9,8 @@ pub(super)mod interrupt_stabber;
 
 pub mod lapic;
 
+pub(super) mod lapic_requests_options;
+
 mod gdt;
 
 

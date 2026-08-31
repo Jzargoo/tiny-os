@@ -1,7 +1,7 @@
-use core::{arch::{global_asm, naked_asm}, num};
+use core::{arch::{global_asm, naked_asm}};
 
 
-use crate::{arch::x86_64::interrupts::{VECTOR_INTERRUPT_ALLOCATOR, interrupt_allocator::VECTOR_BASE, lapic::{APIC_DRIVER, raw_send_eoi}}, println, threw_exception};
+use crate::{arch::x86_64::interrupts::{VECTOR_INTERRUPT_ALLOCATOR, interrupt_allocator::VECTOR_BASE, lapic::APIC_DRIVER}, println, threw_exception};
 
 
 macro_rules! make_isr_no_err {
@@ -117,11 +117,35 @@ unsafe extern "C" fn common_interrupt_fn (frame: *mut InterruptStackFrameWithVec
             return;
         }
 
-        unsafe { raw_send_eoi() }
+        if let Some(driver) = APIC_DRIVER.get() {
+            
+            unsafe { driver.send_eoi() };
+
+        }  else {
+
+            threw_exception!(
+                frame,
+                "INTERRUPT STABBER", 
+                "lapic driver was not initlized"
+            );
+
+        }
 
     } else {
 
-        unsafe { raw_send_eoi() }
+        if let Some(driver) = APIC_DRIVER.get() {
+            
+            unsafe { driver.send_eoi() };
+
+        }  else {
+
+            threw_exception!(
+                frame,
+                "INTERRUPT STABBER", 
+                "lapic driver was not initlized"
+            );
+
+        }
 
         threw_exception!(
             frame,
