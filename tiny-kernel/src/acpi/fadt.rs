@@ -2,13 +2,13 @@ use core::marker::PhantomData;
 
 use crate::hal::addresses::PhysicalAddress;
 
-pub struct Facp<P: PhysicalAddress>{
+pub struct Fadt<P: PhysicalAddress>{
     _phantom: PhantomData<P>
 }
 
-impl <P:PhysicalAddress> Facp<P> {
+impl <P:PhysicalAddress> Fadt<P> {
     pub fn new() -> Self{
-        Facp { 
+        Self { 
             _phantom: PhantomData 
         }
     }
