@@ -16,7 +16,7 @@ use hal::bios_info::BiosInfo;
 
 use core::main;
 
-use crate::{acpi::{xsdt_iter::RxsdtToIter}, allocator::SlubAllocator, arch::x86_64::boot::limine::hlt_loop, hal::{BLACK, GREEN, addresses::PhysicalAddress, framebuffer::Framebuffer, page_allocator::PageAllocator}, logger::graphycal::{bitmap_font::CELL_SIZE, writer::DisplayWriter}};
+use crate::{acpi::{xsdt_iter::RxsdtToIter}, allocator::SlubAllocator, arch::x86_64::hlt_loop, hal::{BLACK, GREEN, addresses::PhysicalAddress, framebuffer::Framebuffer, page_allocator::PageAllocator}, logger::graphycal::{bitmap_font::CELL_SIZE, writer::DisplayWriter}};
 
 pub extern crate alloc;
 
