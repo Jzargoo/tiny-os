@@ -1,6 +1,6 @@
 use core::{marker::PhantomData, slice::from_raw_parts};
 
-use crate::{acpi::{acpi_sdt_header::AcpiSdtHeader, madt_iter::MadtIterator}, hal::addresses::PhysicalAddress};
+use crate::{acpi::{acpi_sdt_header::AcpiSdtHeader, madt_entries::EntryType, madt_iter::MadtIterator}, hal::addresses::PhysicalAddress};
 
 pub struct Madt<P: PhysicalAddress>{
     sdt: &'static AcpiSdtHeader,   
@@ -36,10 +36,11 @@ impl <P:PhysicalAddress> Madt<P> {
         let raw_addr = self.sdt.get_raw_data_addres(0);
 
         unsafe { 
-            *(raw_addr as *const u64)
+            *(raw_addr as *const u32) as u64
         }
         
     }
+
 }
 
 impl <'a, P:PhysicalAddress> Madt<P>{
@@ -65,20 +66,32 @@ use x86_64::VirtAddr;
 
 impl <P:PhysicalAddress> Madt<P>{
     
-    pub fn set_lapic(&self){
+    pub fn set_lapic(&self) -> P{
 
-        let data_addr = self.get_data_addr();
+        let mut data_addr = 0;
 
+        for ele in self.to_iter() {
+            match ele.entry_specific {
+                EntryType::EntryType5(e) => {data_addr = e.lapic_address},
+                _ => {}
+            }
+        }
+
+        if data_addr == 0 {
+            data_addr = self.get_data_addr() as u64;
+        }
+        
         APIC_DRIVER.call_once( || {
 
             unsafe { 
                 ApicDriver::new(
-                    VirtAddr::new(data_addr)
+                    VirtAddr::new(data_addr + self.hhdm as u64)
                 )
             }
     
         });
 
+        P::from_u64(data_addr)
     }
 
 }

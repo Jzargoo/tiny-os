@@ -1,6 +1,6 @@
 use x86_64::{PhysAddr, VirtAddr};
 
-use crate::{acpi::{fadt::Fadt, hpet::Hpet, madt::Madt, mcfg::Mcfg, rsdp::{Rsdp, RsdpCommon}, table_registry::{TableRegistry, Tables}, xsdt::Xsdt, xsdt_iter::RxsdtToIter}, arch::{scheduling::schedule, x86_64::interrupts::{VECTOR_INTERRUPT_ALLOCATOR, lapic::APIC_DRIVER, lapic_requests_options::TimerOptions}}, hal::addresses::{PhysicalAddress, VirtualAddress}};
+use crate::{acpi::{fadt::Fadt, hpet::Hpet, madt::Madt, mcfg::Mcfg, rsdp::{Rsdp, RsdpCommon}, table_registry::{TableRegistry, Tables}, xsdt::Xsdt, xsdt_iter::RxsdtToIter}, arch::{scheduling::schedule, x86_64::interrupts::{VECTOR_INTERRUPT_ALLOCATOR, lapic::APIC_DRIVER, lapic_requests_options::TimerOptions}}, hal::addresses::{PhysicalAddress, VirtualAddress}, println};
 
 pub mod page_allocator;
 
@@ -70,6 +70,8 @@ pub(self) fn setup_lapic(madt: &Madt<x86_64::PhysAddr>) -> bool{
         if let Some(driver) = APIC_DRIVER.get() {
             
             unsafe { driver.setup_timer(options) };
+
+            println!("Timer was set up, returning success!");
 
             return true;
         
@@ -141,7 +143,7 @@ pub fn parse_acpi_tables(xsdt: Xsdt<PhysAddr>, hhdm: usize) -> TableRegistry<Phy
             &Tables::get_signature(&Tables::MADT)
         ){
 
-            madt = Some( Madt::new(i) );
+            madt = Some( Madt::new(i, hhdm) );
             
         }
 
