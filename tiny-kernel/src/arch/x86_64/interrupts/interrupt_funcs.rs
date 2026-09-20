@@ -1,7 +1,7 @@
 use spin::Once;
-use x86_64::{VirtAddr, structures::idt::{InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode}};
+use x86_64::{PrivilegeLevel::Ring0, VirtAddr, structures::idt::{InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode}};
 
-use crate::{arch::x86_64::interrupts::interrupt_allocator::{VECTOR_BASE, VECTOR_POOL_SIZE}, println};
+use crate::{arch::x86_64::interrupts::{interrupt_allocator::{VECTOR_BASE, VECTOR_POOL_SIZE}, interrupt_stabber::SPURIOUS_VECTOR_NUMBER}, force_println, println};
 
 
 pub(super) static IDT: Once<InterruptDescriptorTable> = Once::new();
@@ -164,6 +164,15 @@ pub(in crate::arch::x86_64::interrupts) fn setup_idt() {
             }
 
         }
+        use super::interrupt_stabber::common_interrupt_fn;
+        
+        unsafe {
+            idt[SPURIOUS_VECTOR_NUMBER]
+                .set_handler_addr(
+                    VirtAddr::from_ptr(common_interrupt_fn as *const ())
+                )
+                .set_privilege_level(Ring0)
+        };
 
         idt
 
@@ -175,7 +184,7 @@ pub(in crate::arch::x86_64::interrupts) fn setup_idt() {
 
 
 extern "x86-interrupt" fn breakpoint_fn(frame: InterruptStackFrame) {
-    println!("[BREAKPOINT INTERRUPTER] interrupt frame is {:?}. This function was invoked by a CPU not directly!", frame)
+    force_println!("[BREAKPOINT INTERRUPTER] interrupt frame is {:?}. This function was invoked by a CPU not directly!", frame)
 }
 
 extern "x86-interrupt" fn division_error_fn(frame: InterruptStackFrame) {

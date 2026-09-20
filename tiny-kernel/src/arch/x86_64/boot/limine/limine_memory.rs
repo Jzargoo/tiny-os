@@ -116,7 +116,7 @@ pub fn mmio_init<M,A>(
     let virt_addr = VirtAddr::new(hhdm + phys_base);
 
     let start_page: Page<Size4KiB> = Page::containing_address(virt_addr);
-    let end_page: Page<Size4KiB> = Page::containing_address(virt_addr + size - 1);
+    let end_page: Page<Size4KiB> = Page::containing_address(virt_addr + size);
 
     for page in Page::range_inclusive(start_page, end_page) {
         let frame = PhysFrame::containing_address(

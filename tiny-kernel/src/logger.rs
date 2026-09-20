@@ -57,10 +57,41 @@ macro_rules! println {
     }};
 }
 
+#[macro_export]
+macro_rules! force_print {
+    ($($arg:tt)*) => {{
+        $crate::logger::_force_print(format_args!($($arg)*));
+    }};
+}
+
+#[macro_export]
+macro_rules! force_println {
+    () => {
+        $crate::force_print!("\n")
+    };
+    ($($arg:tt)*) => {{
+        $crate::logger::_force_print(format_args!($($arg)*));
+        $crate::force_print!("\n");
+    }};
+}
 
 #[doc(hidden)]
 pub fn _print(args: core::fmt::Arguments) {
     use core::fmt::Write;
+    
+    let mut logger = LOGGER.lock(); 
+    
+    let _ = logger.write_fmt(args);
+    
+}
+
+#[doc(hidden)]
+pub fn _force_print(args: core::fmt::Arguments) {
+    use core::fmt::Write;
+
+    unsafe {
+        LOGGER.force_unlock();
+    } 
     
     let mut logger = LOGGER.lock(); 
     

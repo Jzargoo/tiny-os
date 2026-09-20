@@ -1,12 +1,12 @@
 
 use core::ptr::{addr_of, read_volatile, write_volatile};
 
-use lapic::{LocalApic, TimerLVT};
+use lapic::{LocalApic, SpuriousInterruptVector, TimerCount, TimerDivConf, TimerLVT};
 
 use spin::Once;
 use x86_64::VirtAddr;
 
-use crate::arch::x86_64::interrupts::lapic_requests_options::TimerOptions;
+use crate::arch::x86_64::interrupts::{interrupt_stabber::SPURIOUS_VECTOR_NUMBER, lapic_requests_options::TimerOptions};
 
 pub struct ApicDriver {
     apic: &'static mut LocalApic
@@ -53,6 +53,10 @@ impl ApicDriver {
 
     }
 
+    pub fn read_timer_current_count(&self) -> TimerCount {
+        self.apic.timer_ccr 
+    }
+
     pub unsafe fn setup_timer(&self, options: TimerOptions) {
     
         let mut timer = TimerLVT::new();
@@ -66,14 +70,44 @@ impl ApicDriver {
 
         timer.set_mask(options.get_mask());
 
+        let mut div = TimerDivConf::new();
+
+        div.set_divisor(0b1011);
+
+        let mut counter = TimerCount::new();
+
+        counter.set_count(10_000_000);
+
 
         unsafe { 
             
             addr_of!(self.apic.timer_lvt)
                 .cast_mut()
                 .write_volatile(timer);
-        
+            
+            addr_of!(self.apic.timer_dcr)
+                .cast_mut()
+                .write_volatile(div);
+
+            addr_of!(self.apic.timer_icr)
+                .cast_mut()
+                .write_volatile(counter);
         };
+
+    }
+    
+    pub unsafe fn setup_spur(&self) {
+        let mut spur = SpuriousInterruptVector::new();
+
+        spur.set_apic_enabled(1);
+
+        spur.set_spurious_vector(SPURIOUS_VECTOR_NUMBER);
+
+        unsafe { 
+            addr_of!(self.apic.spurious_iv)
+                .cast_mut()
+                .write_volatile(spur)
+        }
 
     }
 }

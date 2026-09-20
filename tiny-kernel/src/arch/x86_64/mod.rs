@@ -56,25 +56,46 @@ pub fn hlt_loop() -> ! {
 pub(self) fn setup_lapic(madt: &Madt<x86_64::PhysAddr>) -> bool{
     madt.set_lapic();
 
+
     if let Some(vin) = 
                             VECTOR_INTERRUPT_ALLOCATOR.lock()
                                 .set_and_get_free_vector(schedule) {    
         
         let  options = TimerOptions::new(
-            1,
-            1, 
+            0,
+            0, 
             vin, 
             0b1
         );
-
+        
         if let Some(driver) = APIC_DRIVER.get() {
+             
             
-            unsafe { driver.setup_timer(options) };
+            unsafe {
+                core::arch::asm!("sti");
+                
+                driver.setup_spur();
 
-            println!("Timer was set up, returning success!");
+                driver.setup_timer(options);
+            };
+
+        let a = unsafe { driver.read_timer_current_count() };
+        
+        println!("CCR 1 = {:?}", a);
+
+        for _ in 0..100000 {
+            core::hint::spin_loop();
+        }
+
+        let b = unsafe { driver.read_timer_current_count() };
+        
+        println!("CCR 2 = {:?}", b);
+
+        unsafe {
+            core::arch::asm!("sti");
+        }
 
             return true;
-        
         }
 
         false
