@@ -1,4 +1,4 @@
-
+#[derive(Debug)]
 #[allow(unused)]
 #[repr(C, packed)]
 pub struct ProcessorLapic{
@@ -7,7 +7,7 @@ pub struct ProcessorLapic{
     pub flags: u32
 }
 
-
+#[derive(Debug)]
 #[allow(unused)]
 #[repr(C, packed)]
 pub struct IOApic{
@@ -17,6 +17,7 @@ pub struct IOApic{
     pub global_interrupt: u32
 }
 
+#[derive(Debug)]
 #[allow(unused)]
 #[repr(C, packed)]
 pub struct IOApicSourceOverride{
@@ -26,7 +27,7 @@ pub struct IOApicSourceOverride{
     pub flags: u16
 }
 
-
+#[derive(Debug)]
 #[allow(unused)]
 #[repr(C, packed)]
 pub struct IOApicNonMaskableInterruptSource{
@@ -36,7 +37,7 @@ pub struct IOApicNonMaskableInterruptSource{
     pub gsi: u32
 }
 
-
+#[derive(Debug)]
 #[allow(unused)]
 #[repr(C, packed)]
 pub struct LapicNonMaskableInterrupts{
@@ -45,7 +46,7 @@ pub struct LapicNonMaskableInterrupts{
     pub lint: u8
 }
 
-
+#[derive(Debug)]
 #[allow(unused)]
 #[repr(C, packed)]
 pub struct LapicAddressOverride{
@@ -53,6 +54,7 @@ pub struct LapicAddressOverride{
     pub lapic_address: u64 
 }
 
+#[derive(Debug)]
 #[repr(C, packed)]
 #[allow(unused)]
 pub struct X2LapicProcessor{
@@ -62,6 +64,7 @@ pub struct X2LapicProcessor{
     pub acpi_id: u32
 }
 
+#[derive(Debug)]
 #[allow(unused)]
 pub enum EntryType {
     EntryType0(&'static ProcessorLapic),

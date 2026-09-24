@@ -1,3 +1,5 @@
-pub fn schedule() {
+use crate::println;
 
+pub fn schedule() {
+    println!("scheduling...")
 }

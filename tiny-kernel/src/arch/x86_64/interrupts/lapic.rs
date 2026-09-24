@@ -1,12 +1,12 @@
 
-use core::ptr::{addr_of, read_volatile, write_volatile};
+use core::{ptr::{addr_of, read_volatile, write_volatile}};
 
-use lapic::{LocalApic, TimerLVT};
+use lapic::{LocalApic, TimerCount, TimerDivConf, TimerLVT};
 
 use spin::Once;
 use x86_64::VirtAddr;
 
-use crate::arch::x86_64::interrupts::lapic_requests_options::TimerOptions;
+use crate::{arch::x86_64::interrupts::lapic_requests_options::TimerOptions, println};
 
 pub struct ApicDriver {
     apic: &'static mut LocalApic
@@ -57,6 +57,13 @@ impl ApicDriver {
     
         let mut timer = TimerLVT::new();
 
+        let mut timer_div_config = TimerDivConf::new();
+
+        let mut timer_count = TimerCount::new();
+
+        timer_count.set_count(options.get_count());
+
+        timer_div_config.set_divisor(options.get_div());
 
         timer.set_vector(options.get_vector());
             
@@ -72,9 +79,21 @@ impl ApicDriver {
             addr_of!(self.apic.timer_lvt)
                 .cast_mut()
                 .write_volatile(timer);
+
+            addr_of!(self.apic.timer_icr)
+                .cast_mut()
+                .write_volatile(timer_count);
+
+            addr_of!(self.apic.timer_dcr)
+                .cast_mut()
+                .write_volatile(timer_div_config);
         
         };
 
+        #[cfg(debug_assertions)]
+        println!("Timer was set up in lapic")
+    
     }
+    
 }
 

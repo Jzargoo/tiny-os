@@ -2,8 +2,11 @@ pub struct TimerOptions{
     timer_mode: u8,
     vector: u8,
     delivery_status: u8,
-    mask: u8
+    mask: u8,
+    divisor: u8,
+    count: u32
 }
+
 
 impl TimerOptions{ 
 
@@ -22,11 +25,19 @@ impl TimerOptions{
     pub fn get_delivery_status(&self) -> u8{
         self.delivery_status & 0b1
     }
+
+    pub fn get_count(&self) -> u32 {
+        self.count
+    }
+
+    pub fn get_div(&self) -> u8 {
+        self.divisor
+    }
     
-    pub fn new(mask: u8, delivery_status: u8, vector: u8, timer_mode: u8) -> Self{
+    pub fn new(mask: u8, delivery_status: u8, vector: u8, timer_mode: u8, count: u32, divisor: u8) -> Self{
         
         Self {
-            mask, delivery_status,  vector,  timer_mode
+            mask, delivery_status,  vector,  timer_mode, count, divisor
         }
 
     }

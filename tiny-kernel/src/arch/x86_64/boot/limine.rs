@@ -111,6 +111,7 @@ pub  extern "C" fn _start() -> ! {
     enable_cpu_interrupts();
 
     if let Some(madt) = &tables.madt {
+        println!("madt is {:?}", madt);
         setup_lapic(madt);
     } else {
         panic!("Could not set up lapic table from ACPI specification")

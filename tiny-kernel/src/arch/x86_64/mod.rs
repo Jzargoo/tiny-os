@@ -1,6 +1,6 @@
 use x86_64::{PhysAddr, VirtAddr};
 
-use crate::{acpi::{fadt::Fadt, hpet::Hpet, madt::Madt, mcfg::Mcfg, rsdp::{Rsdp, RsdpCommon}, table_registry::{TableRegistry, Tables}, xsdt::Xsdt, xsdt_iter::RxsdtToIter}, arch::{scheduling::schedule, x86_64::interrupts::{VECTOR_INTERRUPT_ALLOCATOR, lapic::APIC_DRIVER, lapic_requests_options::TimerOptions}}, hal::addresses::{PhysicalAddress, VirtualAddress}};
+use crate::{acpi::{fadt::Fadt, hpet::Hpet, madt::Madt, mcfg::Mcfg, rsdp::{Rsdp, RsdpCommon}, table_registry::{TableRegistry, Tables}, xsdt::Xsdt, xsdt_iter::RxsdtToIter}, arch::{scheduling::schedule, x86_64::interrupts::{VECTOR_INTERRUPT_ALLOCATOR, lapic::APIC_DRIVER, lapic_requests_options::TimerOptions}}, hal::addresses::{PhysicalAddress, VirtualAddress}, println};
 
 pub mod page_allocator;
 
@@ -54,23 +54,32 @@ pub fn hlt_loop() -> ! {
 
 
 pub(self) fn setup_lapic(madt: &Madt<x86_64::PhysAddr>) -> bool{
+
+    println!("Starting setting up lapic");
+
     madt.set_lapic();
+
 
     if let Some(vin) = 
                             VECTOR_INTERRUPT_ALLOCATOR.lock()
                                 .set_and_get_free_vector(schedule) {    
         
+        println!("vector interrupt number is {}", vin);
+
         let  options = TimerOptions::new(
             1,
             1, 
             vin, 
-            0b1
+            0b1,
+            3000,
+            2
         );
 
         if let Some(driver) = APIC_DRIVER.get() {
             
+            
             unsafe { driver.setup_timer(options) };
-
+            
             return true;
         
         }
@@ -141,7 +150,7 @@ pub fn parse_acpi_tables(xsdt: Xsdt<PhysAddr>, hhdm: usize) -> TableRegistry<Phy
             &Tables::get_signature(&Tables::MADT)
         ){
 
-            madt = Some( Madt::new(i) );
+            madt = Some( Madt::new(i, hhdm) );
             
         }
 
