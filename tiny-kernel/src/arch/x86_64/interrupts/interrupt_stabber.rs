@@ -1,8 +1,9 @@
 use core::{arch::{global_asm, naked_asm}};
 
 
-use crate::{arch::x86_64::interrupts::{VECTOR_INTERRUPT_ALLOCATOR, interrupt_allocator::VECTOR_BASE, lapic::APIC_DRIVER}, println, threw_exception};
+use crate::{arch::x86_64::interrupts::{VECTOR_INTERRUPT_ALLOCATOR, interrupt_allocator::VECTOR_BASE, lapic::APIC_DRIVER}, force_println, println, threw_exception};
 
+pub const SPURIOUS_VECTOR_NUMBER: u8 = 0xff;
 
 macro_rules! make_isr_no_err {
     ($num:expr) => {
@@ -97,25 +98,31 @@ pub unsafe extern "C" fn isr_common_stub() {
 }
 
 
-unsafe extern "C" fn common_interrupt_fn (frame: *mut InterruptStackFrameWithVectorNumber) {
+pub(super) unsafe extern "C" fn common_interrupt_fn (frame: *mut InterruptStackFrameWithVectorNumber) {
     
     let number = unsafe { (*frame).vector_number };
     
     let index = number.saturating_sub(VECTOR_BASE as u64);
 
+    force_println!("INTERRUPT RECEIVED: {}", number);
+
+     if number as u8 == SPURIOUS_VECTOR_NUMBER{
+        return;
+    }
     
     
-    let isr_fn_opt = VECTOR_INTERRUPT_ALLOCATOR
-        .lock()
-        .used[index as usize];
+    let isr_fn_opt = unsafe {
+
+        VECTOR_INTERRUPT_ALLOCATOR.force_unlock();
+
+        VECTOR_INTERRUPT_ALLOCATOR
+            .lock()
+            .used[index as usize]
+        };
 
     if let Some(isr_fn) = isr_fn_opt {
 
         isr_fn();
-
-        if number == 0xff{
-            return;
-        }
 
         if let Some(driver) = APIC_DRIVER.get() {
             
@@ -158,7 +165,7 @@ unsafe extern "C" fn common_interrupt_fn (frame: *mut InterruptStackFrameWithVec
 
 #[repr(C)]
 #[derive(Debug)]
-struct InterruptStackFrameWithVectorNumber {
+pub(super) struct InterruptStackFrameWithVectorNumber {
 
     pub r15: u64,
     pub r14: u64,

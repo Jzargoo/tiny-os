@@ -67,21 +67,48 @@ pub(self) fn setup_lapic(madt: &Madt<x86_64::PhysAddr>) -> bool{
         println!("vector interrupt number is {}", vin);
 
         let  options = TimerOptions::new(
-            1,
-            1, 
+            0,
+            0, 
             vin, 
             0b1,
             3000,
             2
         );
-
+        
         if let Some(driver) = APIC_DRIVER.get() {
+             
             
+<<<<<<< HEAD
             
             unsafe { driver.setup_timer(options) };
             
-            return true;
+=======
+            unsafe {
+                core::arch::asm!("sti");
+                
+                driver.setup_spur();
+
+                driver.setup_timer(options);
+            };
+
+        let a = unsafe { driver.read_timer_current_count() };
         
+        println!("CCR 1 = {:?}", a);
+
+        for _ in 0..100000 {
+            core::hint::spin_loop();
+        }
+
+        let b = unsafe { driver.read_timer_current_count() };
+        
+        println!("CCR 2 = {:?}", b);
+
+        unsafe {
+            core::arch::asm!("sti");
+        }
+
+>>>>>>> 8641de48bbae6795ba818e6b93902dda551d12a3
+            return true;
         }
 
         false

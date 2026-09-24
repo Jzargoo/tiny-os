@@ -1,16 +1,10 @@
-use limine::{
-    self, BaseRevision, RequestsEndMarker, RequestsStartMarker, memmap::{Entry, MEMMAP_USABLE}, request::{
-        EntryPointRequest,  FramebufferRequest, HhdmRequest, MemmapRequest, RsdpRequest, StackSizeRequest
-    }
-};
-use x86_64::{PhysAddr, VirtAddr, structures::paging::{FrameAllocator, Mapper, Page, PageTableFlags, PhysFrame, Size4KiB}};
+pub(self) mod starter;
 
-use crate::{
-    acpi::{acpi_sdt_header::AcpiSdtHeader, xsdt::Xsdt}, arch::x86_64::{hlt_loop, interrupts::enable_cpu_interrupts, page_allocator::PageAllocationMapper, parse_acpi_tables, rsdp, setup_lapic}, hal::{    
-        KERNEL_HEAP_SIZE, bios_info::BiosInfo, buddy_mem_manager::BuddyManager, framebuffer::Framebuffer, kernel_allocator::BumpAllocator
-    }, kernel_main, println};
+pub(self) mod limine_framebuffer;
 
+pub(self) mod limine_memory;
 
+<<<<<<< HEAD
     
 #[unsafe(no_mangle)]
 #[used]
@@ -348,3 +342,6 @@ pub fn mmio_init<M,A>(
     }
 
 }
+=======
+pub mod limine_requests;
+>>>>>>> 8641de48bbae6795ba818e6b93902dda551d12a3
