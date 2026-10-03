@@ -4,7 +4,7 @@ use crate::core::scheduling::process::Process;
 
 pub struct Scheduler {
     levels: [Queue; 12],
-    moniter: [u32; 12],
+    monitor: [u32; 12],
     current_pid: usize
 }
 
@@ -32,7 +32,7 @@ impl Queue {
 
 }
 
-impl Sheduler {
+impl Scheduler {
 
     pub fn schedule(&mut self) {
         let len = self.levels.len();
@@ -51,7 +51,7 @@ impl Sheduler {
         }
 
         if let Some(process) = opt_process {
-                
+
         }   
 
 

@@ -21,11 +21,21 @@ pub mod pages {
 
 #[cfg(target_arch = "x86_64")]
 pub mod registers {
-    pub struct ProcessRegisters{
+    
+    #[repr(C, packed)]
+    pub struct ProcessRegisters {
+        pub rbx: u64,
+        pub rbp: u64,
+        pub r12: u64,
+        pub r13: u64,
+        pub r14: u64,
+        pub r15: u64,
+    
+        pub rsp: u64,
+        pub rip: u64,
         pub cr3: u64,
-        pub pc: u64,
-        pub stack_pointer: u64
     }
+
 }
 
 #[cfg(target_arch = "riscv64")]

@@ -5,8 +5,9 @@ use crate::hal::page_allocator::KernelMemRegion;
 use crate::println; 
 
 const MIN_ORDER: u8 = 12; // 4KB 
-const MAX_ORDER: u8 = 21; // 2MB 
-
+const MAX_ORDER: u8 = 21; // 2MB
+ 
+// What a hell is that comment?
 //TODO : REFACTOR THE ENTIRE ALLOCATOR TO SUPPORT MY ADDRESS TRAITS
 
 
