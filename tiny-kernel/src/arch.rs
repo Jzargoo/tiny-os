@@ -19,6 +19,15 @@ pub mod pages {
     pub const PAGE_SIZE_HUGE: usize = 1024 * 1024 * 1024;  // 1 gib
 }
 
+#[cfg(target_arch = "x86_64")]
+pub mod registers {
+    pub struct ProcessRegisters{
+        pub cr3: u64,
+        pub pc: u64,
+        pub stack_pointer: u64
+    }
+}
+
 #[cfg(target_arch = "riscv64")]
 pub mod pages {
     pub const PAGE_SIZE_REGULAR: usize = 4096;          

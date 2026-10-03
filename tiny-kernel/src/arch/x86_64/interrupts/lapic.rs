@@ -114,7 +114,8 @@ impl ApicDriver {
         }
 
     }
-
+    
+    #[allow(dead_code)]
     pub unsafe fn read_current_count(&self) -> u32{
     
         unsafe {
