@@ -1,5 +1,11 @@
-use crate::println;
+use crate::{core::process::scheduling::{SCHEDULER, Scheduler}};
 
 pub fn schedule() {
-    println!("Panic from scheduler! LAPIC timer works!!!!");
+
+    unsafe{
+        if let Some(mut scheduler) = SCHEDULER.try_lock() {
+            scheduler.schedule();
+        }
+    }
+    
 }

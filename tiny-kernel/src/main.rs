@@ -74,12 +74,6 @@ pub fn kernel_main<P: PhysicalAddress>(bi: &mut BiosInfo<P>) {
 
     main();
 
-    for i in 0..999{
-        println!("{}", i);
-    }
-
-    panic!("TEST PANIC");
-
 }
 
 pub fn init_memory<P: PhysicalAddress>(bi: &mut BiosInfo<P>) {

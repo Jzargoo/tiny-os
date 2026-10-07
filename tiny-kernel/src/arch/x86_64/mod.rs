@@ -71,7 +71,7 @@ pub(self) fn setup_lapic(madt: &Madt<x86_64::PhysAddr>) -> bool{
             0, 
             vin, 
             0b1,
-            3000,
+            20000,
             2
         );
         
